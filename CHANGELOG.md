@@ -1,15 +1,20 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
-- test: add Spring Boot auto-configuration tests (2026-02-22)
-- fix: correct deserialization of nullable fields (2026-02-22)
-- refactor: extract common config into shared module (2026-02-22)
-- perf: optimize batch producer flush strategy (2026-02-22)
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Fixed
+- Correct deserialization of nullable fields
+
+### Changed
+- Extract common config into shared module
+
+### Performance
+- Optimize batch producer flush strategy
 
 ## [0.2.0] - 2026-02-18
 
