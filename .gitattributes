@@ -1,0 +1,7 @@
+* text=auto
+*.java text diff=java
+*.xml text
+*.md text diff=markdown
+*.sh text eol=lf
+*.jar binary
+mvnw text eol=lf
