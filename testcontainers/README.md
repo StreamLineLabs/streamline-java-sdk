@@ -1,6 +1,9 @@
 # Testcontainers Streamline (Java)
 
-Testcontainers module for [Streamline](https://github.com/streamlinelabs/streamline-java-sdk) - The Redis of Streaming.
+[![Maven Central](https://img.shields.io/maven-central/v/io.streamline/testcontainers-streamline?style=flat-square)](https://search.maven.org/artifact/io.streamline/testcontainers-streamline)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square)](LICENSE)
+
+Testcontainers module for [Streamline](https://github.com/streamlinelabs/streamline) — **5x faster** than Kafka containers (~1s vs ~15s startup).
 
 ## Features
 

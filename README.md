@@ -1,6 +1,7 @@
 # Streamline Java SDK
 
 [![CI](https://github.com/streamlinelabs/streamline-java-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/streamlinelabs/streamline-java-sdk/actions/workflows/ci.yml)
+[![codecov](https://img.shields.io/codecov/c/github/streamlinelabs/streamline-java-sdk?style=flat-square)](https://codecov.io/gh/streamlinelabs/streamline-java-sdk)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Java](https://img.shields.io/badge/Java-17%2B-orange.svg)](https://openjdk.org/)
 [![Docs](https://img.shields.io/badge/docs-streamlinelabs.dev-blue.svg)](https://streamlinelabs.dev/docs/sdks/java)
