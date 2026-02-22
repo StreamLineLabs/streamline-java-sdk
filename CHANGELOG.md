@@ -1,6 +1,7 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+- fix: correct deserialization of nullable fields (2026-02-22)
 - refactor: extract common config into shared module (2026-02-22)
 - perf: optimize batch producer flush strategy (2026-02-22)
 
