@@ -16,7 +16,7 @@ jobs:
           cache: 'maven'
       - run: mvn --batch-mode verify -Dmaven.test.failure.ignore=false
       - name: Upload coverage
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           fail_ci_if_error: false
         env:
