@@ -33,6 +33,12 @@
             <artifactId>netty-all</artifactId>
         </dependency>
 
+        <!-- Kafka Protocol -->
+        <dependency>
+            <groupId>org.apache.kafka</groupId>
+            <artifactId>kafka-clients</artifactId>
+        </dependency>
+
         <!-- Metrics (optional) -->
         <dependency>
             <groupId>io.micrometer</groupId>

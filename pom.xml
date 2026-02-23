@@ -35,6 +35,7 @@
         <slf4j.version>2.0.9</slf4j.version>
         <jackson.version>2.16.0</jackson.version>
         <netty.version>4.1.101.Final</netty.version>
+        <kafka.version>3.7.0</kafka.version>
         <micrometer.version>1.12.0</micrometer.version>
         <spring-boot.version>3.2.0</spring-boot.version>
 
@@ -94,6 +95,13 @@
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-context</artifactId>
                 <version>${opentelemetry.version}</version>
+            </dependency>
+
+            <!-- Kafka Protocol -->
+            <dependency>
+                <groupId>org.apache.kafka</groupId>
+                <artifactId>kafka-clients</artifactId>
+                <version>${kafka.version}</version>
             </dependency>
 
             <!-- Testing -->
