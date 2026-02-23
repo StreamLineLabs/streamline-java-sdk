@@ -42,7 +42,7 @@
         <junit.version>5.10.1</junit.version>
         <mockito.version>5.7.0</mockito.version>
         <testcontainers.version>1.19.3</testcontainers.version>
-        <opentelemetry.version>1.34.0</opentelemetry.version>
+        <opentelemetry.version>1.59.0</opentelemetry.version>
     </properties>
 
     <dependencyManagement>
