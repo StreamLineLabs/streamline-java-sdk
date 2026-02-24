@@ -358,4 +358,279 @@ public class StreamlineContainer extends GenericContainer<StreamlineContainer> {
         }
         throw new RuntimeException("Timeout waiting for topics after " + timeout);
     }
+
+    // -------------------------------------------------------------------------
+    // Enhanced capabilities: batch produce, consumer groups, migration helpers
+    // -------------------------------------------------------------------------
+
+    /**
+     * Produces a batch of messages to a topic.
+     *
+     * @param topic the topic name
+     * @param messages list of messages to produce
+     * @throws RuntimeException if batch production fails
+     */
+    public void produceMessages(String topic, java.util.List<String> messages) {
+        for (String msg : messages) {
+            produceMessage(topic, msg);
+        }
+    }
+
+    /**
+     * Produces a batch of keyed messages to a topic.
+     *
+     * @param topic the topic name
+     * @param messages map of key to value
+     * @throws RuntimeException if batch production fails
+     */
+    public void produceKeyedMessages(String topic, java.util.Map<String, String> messages) {
+        messages.forEach((key, value) -> produceMessage(topic, key, value));
+    }
+
+    /**
+     * Lists consumer groups via the CLI.
+     *
+     * @return list of consumer group IDs
+     */
+    public java.util.List<String> listConsumerGroups() {
+        try {
+            ExecResult result = execInContainer(
+                "streamline-cli", "groups", "list", "--format", "json"
+            );
+            if (result.getExitCode() != 0) {
+                throw new RuntimeException("Failed to list consumer groups: " + result.getStderr());
+            }
+            String output = result.getStdout().trim();
+            java.util.List<String> groups = new java.util.ArrayList<>();
+            if (!output.isEmpty()) {
+                for (String line : output.split("\n")) {
+                    String trimmed = line.trim();
+                    if (!trimmed.isEmpty() && !trimmed.startsWith("[") && !trimmed.startsWith("]")) {
+                        groups.add(trimmed.replaceAll("[\"',]", ""));
+                    }
+                }
+            }
+            return groups;
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to list consumer groups", e);
+        }
+    }
+
+    /**
+     * Asserts that a consumer group exists.
+     *
+     * @param groupId the consumer group ID
+     * @throws AssertionError if the group does not exist
+     */
+    public void assertConsumerGroupExists(String groupId) {
+        try {
+            ExecResult result = execInContainer(
+                "streamline-cli", "groups", "describe", groupId
+            );
+            if (result.getExitCode() != 0) {
+                throw new AssertionError("Consumer group '" + groupId + "' does not exist");
+            }
+        } catch (AssertionError e) {
+            throw e;
+        } catch (Exception e) {
+            throw new AssertionError("Failed to check consumer group: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Gets the partition count for a topic.
+     *
+     * @param topicName the topic name
+     * @return the number of partitions
+     */
+    public int getPartitionCount(String topicName) {
+        try {
+            ExecResult result = execInContainer(
+                "streamline-cli", "topics", "describe", topicName, "--format", "json"
+            );
+            if (result.getExitCode() != 0) {
+                throw new RuntimeException("Topic '" + topicName + "' not found");
+            }
+            String output = result.getStdout();
+            // Parse partition count from JSON output
+            int idx = output.indexOf("partitions");
+            if (idx >= 0) {
+                String after = output.substring(idx);
+                StringBuilder num = new StringBuilder();
+                boolean foundColon = false;
+                for (char c : after.toCharArray()) {
+                    if (c == ':') foundColon = true;
+                    else if (foundColon && Character.isDigit(c)) num.append(c);
+                    else if (foundColon && num.length() > 0) break;
+                }
+                if (num.length() > 0) return Integer.parseInt(num.toString());
+            }
+            return 1;
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to get partition count", e);
+        }
+    }
+
+    /**
+     * Asserts that a topic has the expected number of partitions.
+     *
+     * @param topicName the topic name
+     * @param expectedPartitions the expected partition count
+     * @throws AssertionError if the partition count doesn't match
+     */
+    public void assertPartitionCount(String topicName, int expectedPartitions) {
+        int actual = getPartitionCount(topicName);
+        if (actual != expectedPartitions) {
+            throw new AssertionError(
+                "Expected " + expectedPartitions + " partitions for topic '" +
+                topicName + "', but found " + actual
+            );
+        }
+    }
+
+    /**
+     * Gets cluster information from the HTTP API.
+     *
+     * @return the cluster info as a JSON string
+     */
+    public String getClusterInfo() {
+        try {
+            java.net.URL url = new java.net.URL(getInfoUrl());
+            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+            conn.setConnectTimeout(5000);
+            conn.setReadTimeout(5000);
+            java.io.InputStream is = conn.getInputStream();
+            return new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to get cluster info: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Enables auto-topic creation with default partition count.
+     *
+     * @param defaultPartitions default number of partitions for auto-created topics
+     * @return this container instance for method chaining
+     */
+    public StreamlineContainer withAutoCreateTopics(int defaultPartitions) {
+        withEnv("STREAMLINE_AUTO_CREATE_TOPICS", "true");
+        withEnv("STREAMLINE_DEFAULT_PARTITIONS", String.valueOf(defaultPartitions));
+        return this;
+    }
+
+    /**
+     * Enables authentication with SASL/PLAIN.
+     *
+     * @param username the admin username
+     * @param password the admin password
+     * @return this container instance for method chaining
+     */
+    public StreamlineContainer withAuthentication(String username, String password) {
+        withEnv("STREAMLINE_AUTH_ENABLED", "true");
+        withEnv("STREAMLINE_AUTH_DEFAULT_USER", username);
+        withEnv("STREAMLINE_AUTH_DEFAULT_PASSWORD", password);
+        return this;
+    }
+
+    // -------------------------------------------------------------------------
+    // Kafka migration helpers
+    // -------------------------------------------------------------------------
+
+    /**
+     * Creates a Streamline container configured as a drop-in replacement for
+     * the Testcontainers KafkaContainer. Useful for migrating from Kafka-based tests.
+     *
+     * <p>Usage (migration from Kafka):</p>
+     * <pre>{@code
+     * // Before (Kafka):
+     * // KafkaContainer kafka = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.4.0"));
+     *
+     * // After (Streamline):
+     * StreamlineContainer streamline = StreamlineContainer.asKafkaReplacement();
+     * String bootstrapServers = streamline.getBootstrapServers();
+     * // Rest of your Kafka client code works unchanged
+     * }</pre>
+     *
+     * @return a new StreamlineContainer configured for Kafka compatibility
+     */
+    public static StreamlineContainer asKafkaReplacement() {
+        return new StreamlineContainer()
+                .withInMemory()
+                .withAutoCreateTopics(1);
+    }
+
+    /**
+     * Creates a container pre-configured with topics matching a Kafka test setup.
+     *
+     * @param topics map of topic name to partition count
+     * @return a new StreamlineContainer with pre-configured topics
+     */
+    public static StreamlineContainer withPreConfiguredTopics(java.util.Map<String, Integer> topics) {
+        StreamlineContainer container = new StreamlineContainer().withInMemory();
+        for (java.util.Map.Entry<String, Integer> entry : topics.entrySet()) {
+            container.withEnv(
+                "STREAMLINE_AUTO_TOPIC_" + entry.getKey(),
+                String.valueOf(entry.getValue())
+            );
+        }
+        return container;
+    }
+
+    /**
+     * Enables ephemeral mode: in-memory, auto-cleanup, fastest possible startup.
+     * The server will auto-shutdown after the idle timeout if no clients are connected.
+     *
+     * @return this container instance for method chaining
+     */
+    public StreamlineContainer withEphemeral() {
+        withEnv("STREAMLINE_EPHEMERAL", "true");
+        withEnv("STREAMLINE_IN_MEMORY", "true");
+        return this;
+    }
+
+    /**
+     * Sets the ephemeral idle timeout (how long to wait with zero connections before shutdown).
+     *
+     * @param seconds seconds to wait before auto-shutdown
+     * @return this container instance for method chaining
+     */
+    public StreamlineContainer withEphemeralIdleTimeout(int seconds) {
+        withEnv("STREAMLINE_EPHEMERAL_IDLE_TIMEOUT", String.valueOf(seconds));
+        return this;
+    }
+
+    /**
+     * Pre-configures topics to be auto-created on startup in ephemeral mode.
+     *
+     * @param topicSpecs comma-separated list of "name:partitions" specs
+     * @return this container instance for method chaining
+     */
+    public StreamlineContainer withEphemeralAutoTopics(String topicSpecs) {
+        withEnv("STREAMLINE_EPHEMERAL_AUTO_TOPICS", topicSpecs);
+        return this;
+    }
+
+    /**
+     * Creates a container optimized for CI/CD testing:
+     * ephemeral mode, in-memory, auto-create topics, minimal logging.
+     *
+     * <p>Usage:</p>
+     * <pre>{@code
+     * @Container
+     * StreamlineContainer streamline = StreamlineContainer.forTesting()
+     *     .withEphemeralAutoTopics("orders:3,events:6,logs:1");
+     * }</pre>
+     *
+     * @return a new StreamlineContainer optimized for testing
+     */
+    public static StreamlineContainer forTesting() {
+        return new StreamlineContainer()
+                .withEphemeral()
+                .withAutoCreateTopics(3)
+                .withLogLevel("warn");
+    }
 }

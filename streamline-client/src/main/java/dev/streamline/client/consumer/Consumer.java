@@ -1,16 +1,23 @@
 package dev.streamline.client.consumer;
 
 import dev.streamline.client.*;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Consumer for reading messages from Streamline.
+ *
+ * <p>Delegates to the Apache Kafka client library for wire protocol compatibility.
  *
  * <p>Example usage:
  * <pre>{@code
@@ -36,6 +43,7 @@ public class Consumer<K, V> implements Closeable {
     private final StreamlineConfig config;
     private final String topic;
     private final ConsumerConfig consumerConfig;
+    private final KafkaConsumer<byte[], byte[]> kafkaConsumer;
     private volatile boolean subscribed = false;
     private volatile boolean closed = false;
 
@@ -44,6 +52,24 @@ public class Consumer<K, V> implements Closeable {
         this.config = config;
         this.topic = topic;
         this.consumerConfig = consumerConfig;
+
+        Properties props = new Properties();
+        props.put(org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getBootstrapServers());
+        props.put(org.apache.kafka.clients.consumer.ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
+        props.put(org.apache.kafka.clients.consumer.ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
+        props.put(org.apache.kafka.clients.consumer.ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, consumerConfig.autoOffsetReset());
+        props.put(org.apache.kafka.clients.consumer.ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, String.valueOf(consumerConfig.enableAutoCommit()));
+        props.put(org.apache.kafka.clients.consumer.ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, String.valueOf(consumerConfig.autoCommitIntervalMs()));
+        props.put(org.apache.kafka.clients.consumer.ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, String.valueOf(consumerConfig.sessionTimeoutMs()));
+        props.put(org.apache.kafka.clients.consumer.ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG, String.valueOf(consumerConfig.heartbeatIntervalMs()));
+        props.put(org.apache.kafka.clients.consumer.ConsumerConfig.MAX_POLL_RECORDS_CONFIG, String.valueOf(consumerConfig.maxPollRecords()));
+        props.put(org.apache.kafka.clients.consumer.ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, String.valueOf(consumerConfig.maxPollIntervalMs()));
+
+        if (consumerConfig.groupId() != null) {
+            props.put(org.apache.kafka.clients.consumer.ConsumerConfig.GROUP_ID_CONFIG, consumerConfig.groupId());
+        }
+
+        this.kafkaConsumer = new KafkaConsumer<>(props);
         log.debug("Consumer created for topic {} with group {}", topic, consumerConfig.groupId());
     }
 
@@ -53,7 +79,7 @@ public class Consumer<K, V> implements Closeable {
     public void subscribe() {
         ensureOpen();
         if (!subscribed) {
-            // TODO: Implement subscription via Kafka protocol
+            kafkaConsumer.subscribe(Collections.singletonList(topic));
             subscribed = true;
             log.info("Subscribed to topic {}", topic);
         }
@@ -65,15 +91,41 @@ public class Consumer<K, V> implements Closeable {
      * @param timeout the maximum time to wait for records
      * @return a list of records (may be empty)
      */
+    @SuppressWarnings("unchecked")
     public List<ConsumerRecord<K, V>> poll(Duration timeout) {
         ensureOpen();
         if (!subscribed) {
             throw new IllegalStateException("Consumer is not subscribed");
         }
 
-        // TODO: Implement actual Kafka protocol fetch
-        log.trace("Polling for records with timeout {}", timeout);
-        return Collections.emptyList();
+        var kafkaRecords = kafkaConsumer.poll(timeout);
+        List<ConsumerRecord<K, V>> results = new ArrayList<>();
+
+        for (var record : kafkaRecords) {
+            K key = record.key() != null ? (K) new String(record.key(), StandardCharsets.UTF_8) : null;
+            V value = record.value() != null ? (V) new String(record.value(), StandardCharsets.UTF_8) : null;
+
+            Headers headers = Headers.empty();
+            if (record.headers() != null) {
+                Headers.Builder hb = Headers.builder();
+                for (var header : record.headers()) {
+                    hb.add(header.key(), new String(header.value(), StandardCharsets.UTF_8));
+                }
+                headers = hb.build();
+            }
+
+            results.add(new ConsumerRecord<>(
+                record.topic(),
+                record.partition(),
+                record.offset(),
+                record.timestamp(),
+                key,
+                value,
+                headers
+            ));
+        }
+
+        return results;
     }
 
     /**
@@ -81,8 +133,8 @@ public class Consumer<K, V> implements Closeable {
      */
     public void commitSync() {
         ensureOpen();
-        // TODO: Implement offset commit
-        log.debug("Committed offsets");
+        kafkaConsumer.commitSync();
+        log.debug("Committed offsets synchronously");
     }
 
     /**
@@ -90,8 +142,13 @@ public class Consumer<K, V> implements Closeable {
      */
     public void commitAsync() {
         ensureOpen();
-        // TODO: Implement async offset commit
-        log.debug("Async commit requested");
+        kafkaConsumer.commitAsync((offsets, exception) -> {
+            if (exception != null) {
+                log.warn("Async offset commit failed", exception);
+            } else {
+                log.debug("Async commit completed");
+            }
+        });
     }
 
     /**
@@ -99,7 +156,7 @@ public class Consumer<K, V> implements Closeable {
      */
     public void seekToBeginning() {
         ensureOpen();
-        // TODO: Implement seek
+        kafkaConsumer.seekToBeginning(kafkaConsumer.assignment());
         log.debug("Seeking to beginning");
     }
 
@@ -108,7 +165,7 @@ public class Consumer<K, V> implements Closeable {
      */
     public void seekToEnd() {
         ensureOpen();
-        // TODO: Implement seek
+        kafkaConsumer.seekToEnd(kafkaConsumer.assignment());
         log.debug("Seeking to end");
     }
 
@@ -120,7 +177,7 @@ public class Consumer<K, V> implements Closeable {
      */
     public void seek(int partition, long offset) {
         ensureOpen();
-        // TODO: Implement seek
+        kafkaConsumer.seek(new TopicPartition(topic, partition), offset);
         log.debug("Seeking partition {} to offset {}", partition, offset);
     }
 
@@ -132,8 +189,7 @@ public class Consumer<K, V> implements Closeable {
      */
     public long position(int partition) {
         ensureOpen();
-        // TODO: Implement position query
-        return 0;
+        return kafkaConsumer.position(new TopicPartition(topic, partition));
     }
 
     /**
@@ -141,7 +197,7 @@ public class Consumer<K, V> implements Closeable {
      */
     public void pause() {
         ensureOpen();
-        // TODO: Implement pause
+        kafkaConsumer.pause(kafkaConsumer.assignment());
         log.debug("Consumer paused");
     }
 
@@ -150,7 +206,7 @@ public class Consumer<K, V> implements Closeable {
      */
     public void resume() {
         ensureOpen();
-        // TODO: Implement resume
+        kafkaConsumer.resume(kafkaConsumer.assignment());
         log.debug("Consumer resumed");
     }
 
@@ -163,8 +219,8 @@ public class Consumer<K, V> implements Closeable {
     @Override
     public void close() {
         if (!closed) {
+            kafkaConsumer.close(Duration.ofSeconds(30));
             closed = true;
-            // TODO: Leave consumer group
             log.info("Consumer closed");
         }
     }

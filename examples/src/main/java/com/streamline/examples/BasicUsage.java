@@ -28,7 +28,7 @@ public class BasicUsage {
     public static void main(String[] args) throws Exception {
         // Configure the client
         StreamlineConfig config = StreamlineConfig.builder()
-                .bootstrapServers("localhost:9092")
+                .bootstrapServers(System.getenv().getOrDefault("STREAMLINE_BOOTSTRAP_SERVERS", "localhost:9092"))
                 .clientId("java-example")
                 .build();
 

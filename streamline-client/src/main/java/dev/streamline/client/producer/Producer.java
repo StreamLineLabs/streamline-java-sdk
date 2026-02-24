@@ -1,14 +1,23 @@
 package dev.streamline.client.producer;
 
 import dev.streamline.client.*;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.header.internals.RecordHeader;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 
 /**
  * Asynchronous producer for sending messages to Streamline.
+ *
+ * <p>Delegates to the Apache Kafka client library for wire protocol compatibility.
  *
  * <p>Example usage:
  * <pre>{@code
@@ -29,12 +38,24 @@ public class Producer<K, V> implements Closeable {
     private final ConnectionPool connectionPool;
     private final StreamlineConfig config;
     private final ProducerConfig producerConfig;
+    private final KafkaProducer<byte[], byte[]> kafkaProducer;
     private volatile boolean closed = false;
 
     public Producer(ConnectionPool connectionPool, StreamlineConfig config, ProducerConfig producerConfig) {
         this.connectionPool = connectionPool;
         this.config = config;
         this.producerConfig = producerConfig;
+
+        Properties props = new Properties();
+        props.put(org.apache.kafka.clients.producer.ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getBootstrapServers());
+        props.put(org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
+        props.put(org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
+        props.put(org.apache.kafka.clients.producer.ProducerConfig.BATCH_SIZE_CONFIG, producerConfig.batchSize());
+        props.put(org.apache.kafka.clients.producer.ProducerConfig.LINGER_MS_CONFIG, producerConfig.lingerMs());
+        props.put(org.apache.kafka.clients.producer.ProducerConfig.ACKS_CONFIG, "all");
+        props.put(org.apache.kafka.clients.producer.ProducerConfig.RETRIES_CONFIG, 3);
+
+        this.kafkaProducer = new KafkaProducer<>(props);
         log.debug("Producer created with batch size {}", producerConfig.batchSize());
     }
 
@@ -68,22 +89,31 @@ public class Producer<K, V> implements Closeable {
             throw new IllegalArgumentException("Value must not be null");
         }
 
-        // TODO: Implement actual Kafka protocol message sending
-        // For now, return a simulated successful response
-        return CompletableFuture.supplyAsync(() -> {
-            log.debug("Sending message to topic {}", topic);
+        byte[] keyBytes = key != null ? serializeToBytes(key) : null;
+        byte[] valueBytes = serializeToBytes(value);
 
-            // Simulate network call
-            try {
-                Thread.sleep(1);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new StreamlineException("Send interrupted", e);
+        ProducerRecord<byte[], byte[]> record = new ProducerRecord<>(topic, keyBytes, valueBytes);
+        if (headers != null) {
+            for (var entry : headers.toMap().entrySet()) {
+                record.headers().add(new RecordHeader(entry.getKey(), entry.getValue().getBytes(StandardCharsets.UTF_8)));
             }
+        }
 
-            // Return metadata
-            return new RecordMetadata(topic, 0, System.currentTimeMillis(), System.currentTimeMillis());
+        CompletableFuture<RecordMetadata> future = new CompletableFuture<>();
+        kafkaProducer.send(record, (metadata, exception) -> {
+            if (exception != null) {
+                future.completeExceptionally(new StreamlineException("Failed to send message", exception));
+            } else {
+                future.complete(new RecordMetadata(
+                    metadata.topic(),
+                    metadata.partition(),
+                    metadata.offset(),
+                    metadata.timestamp()
+                ));
+            }
         });
+
+        return future;
     }
 
     /**
@@ -118,19 +148,51 @@ public class Producer<K, V> implements Closeable {
             throw new IllegalArgumentException("Value must not be null");
         }
 
-        return CompletableFuture.supplyAsync(() -> {
-            log.debug("Sending message to topic {} partition {}", topic, partition);
-            return new RecordMetadata(topic, partition, System.currentTimeMillis(), System.currentTimeMillis());
+        byte[] keyBytes = key != null ? serializeToBytes(key) : null;
+        byte[] valueBytes = serializeToBytes(value);
+
+        ProducerRecord<byte[], byte[]> record = new ProducerRecord<>(topic, partition, keyBytes, valueBytes);
+        if (headers != null) {
+            for (var entry : headers.toMap().entrySet()) {
+                record.headers().add(new RecordHeader(entry.getKey(), entry.getValue().getBytes(StandardCharsets.UTF_8)));
+            }
+        }
+
+        CompletableFuture<RecordMetadata> future = new CompletableFuture<>();
+        kafkaProducer.send(record, (metadata, exception) -> {
+            if (exception != null) {
+                future.completeExceptionally(new StreamlineException("Failed to send message", exception));
+            } else {
+                future.complete(new RecordMetadata(
+                    metadata.topic(),
+                    metadata.partition(),
+                    metadata.offset(),
+                    metadata.timestamp()
+                ));
+            }
         });
+
+        return future;
     }
 
     /**
-     * Flushes any buffered messages.
+     * Flushes any buffered messages, blocking until all sends complete.
      */
     public void flush() {
         ensureOpen();
-        // TODO: Implement batching and flushing
-        log.debug("Flushing producer");
+        kafkaProducer.flush();
+        log.debug("Producer flushed");
+    }
+
+    @SuppressWarnings("unchecked")
+    private byte[] serializeToBytes(Object obj) {
+        if (obj instanceof byte[]) {
+            return (byte[]) obj;
+        } else if (obj instanceof String) {
+            return ((String) obj).getBytes(StandardCharsets.UTF_8);
+        } else {
+            return obj.toString().getBytes(StandardCharsets.UTF_8);
+        }
     }
 
     private void ensureOpen() {
@@ -142,7 +204,7 @@ public class Producer<K, V> implements Closeable {
     @Override
     public void close() {
         if (!closed) {
-            flush();
+            kafkaProducer.close(Duration.ofSeconds(30));
             closed = true;
             log.debug("Producer closed");
         }
