@@ -87,3 +87,4 @@ class HeadersTest {
         assertThrows(UnsupportedOperationException.class, () -> map.put("new", "entry"));
     }
 }
+// TODO: add JUnit 5 tests for producer callback
