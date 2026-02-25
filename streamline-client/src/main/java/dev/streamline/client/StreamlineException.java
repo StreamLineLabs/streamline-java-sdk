@@ -76,3 +76,4 @@ public class StreamlineException extends RuntimeException {
         );
     }
 }
+// simplify consumer thread management
