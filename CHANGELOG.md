@@ -52,3 +52,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Spring Boot starter module
 - Testcontainers support for integration testing
 - Apache 2.0 license
+
