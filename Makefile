@@ -24,3 +24,4 @@ package: ## Build JAR package
 release: ## Deploy to Maven Central
 	mvn deploy -P release -DskipTests
 # update parent POM dependency versions
+# configure Maven Central publishing plugin
