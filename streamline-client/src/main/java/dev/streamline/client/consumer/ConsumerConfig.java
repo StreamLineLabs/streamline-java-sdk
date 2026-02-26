@@ -126,3 +126,4 @@ public record ConsumerConfig(
         }
     }
 }
+// resolve ClassCastException in header parsing
