@@ -4,6 +4,9 @@ import dev.streamline.client.producer.Producer;
 import dev.streamline.client.producer.ProducerConfig;
 import dev.streamline.client.consumer.Consumer;
 import dev.streamline.client.consumer.ConsumerConfig;
+import dev.streamline.client.security.SecurityProtocol;
+import dev.streamline.client.security.SaslConfig;
+import dev.streamline.client.security.TlsConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -191,6 +194,9 @@ public class Streamline implements Closeable {
         private int connectionPoolSize = 4;
         private int connectTimeoutMs = 30000;
         private int requestTimeoutMs = 30000;
+        private SecurityProtocol securityProtocol = SecurityProtocol.PLAINTEXT;
+        private SaslConfig saslConfig;
+        private TlsConfig tlsConfig;
 
         private Builder() {}
 
@@ -265,6 +271,39 @@ public class Streamline implements Closeable {
         }
 
         /**
+         * Sets the security protocol.
+         *
+         * @param securityProtocol the security protocol
+         * @return this builder
+         */
+        public Builder securityProtocol(SecurityProtocol securityProtocol) {
+            this.securityProtocol = securityProtocol;
+            return this;
+        }
+
+        /**
+         * Sets the SASL authentication configuration.
+         *
+         * @param saslConfig the SASL configuration
+         * @return this builder
+         */
+        public Builder saslConfig(SaslConfig saslConfig) {
+            this.saslConfig = saslConfig;
+            return this;
+        }
+
+        /**
+         * Sets the TLS/SSL configuration.
+         *
+         * @param tlsConfig the TLS configuration
+         * @return this builder
+         */
+        public Builder tlsConfig(TlsConfig tlsConfig) {
+            this.tlsConfig = tlsConfig;
+            return this;
+        }
+
+        /**
          * Builds the Streamline client.
          *
          * @return a new Streamline client instance
@@ -272,14 +311,17 @@ public class Streamline implements Closeable {
         public Streamline build() {
             Objects.requireNonNull(bootstrapServers, "bootstrapServers must be set");
 
-            StreamlineConfig config = new StreamlineConfig(
-                bootstrapServers,
-                producerConfig,
-                consumerConfig,
-                connectionPoolSize,
-                connectTimeoutMs,
-                requestTimeoutMs
-            );
+            StreamlineConfig config = StreamlineConfig.builder()
+                .bootstrapServers(bootstrapServers)
+                .producerConfig(producerConfig)
+                .consumerConfig(consumerConfig)
+                .connectionPoolSize(connectionPoolSize)
+                .connectTimeoutMs(connectTimeoutMs)
+                .requestTimeoutMs(requestTimeoutMs)
+                .securityProtocol(securityProtocol)
+                .saslConfig(saslConfig)
+                .tlsConfig(tlsConfig)
+                .build();
 
             return new Streamline(config);
         }
