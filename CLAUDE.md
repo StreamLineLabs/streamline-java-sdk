@@ -68,3 +68,4 @@ public class EventConsumer {
 - Testcontainers 1.19 for integration tests
 - JaCoCo for coverage (runs on `verify`)
 - SpotBugs for static analysis (runs on `verify`)
+
