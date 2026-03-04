@@ -107,8 +107,13 @@ public void handleEvent(Event event) {
 ## Features
 
 - **Fluent Builder API**: Easy-to-use configuration
+- **Admin Client**: Topic management, consumer group inspection via HTTP REST API
+- **SQL Queries**: Execute SQL queries against streaming data
 - **Connection Pooling**: Automatic connection management
 - **Automatic Reconnection**: Handles transient failures
+- **Compression**: LZ4, Zstd, Snappy, Gzip
+- **TLS/mTLS**: Secure connections with certificate support
+- **SASL Authentication**: PLAIN and SCRAM-SHA-256/512
 - **Metrics Integration**: Micrometer support
 - **OpenTelemetry Tracing**: Optional distributed tracing for produce/consume operations
 - **Spring Boot Auto-configuration**: Zero-config for Spring apps
@@ -226,6 +231,48 @@ cd sdks/java
 | `consumer.pause()` | Pause consuming |
 | `consumer.resume()` | Resume consuming |
 | `consumer.close()` | Close the consumer |
+
+### Admin Client
+
+| Method | Description |
+|--------|-------------|
+| `admin.listTopics()` | List all topics |
+| `admin.describeTopic(name)` | Get topic details |
+| `admin.createTopic(name, partitions)` | Create a new topic |
+| `admin.deleteTopic(name)` | Delete a topic |
+| `admin.listConsumerGroups()` | List consumer groups |
+| `admin.describeConsumerGroup(id)` | Get group details |
+
+### Query Client
+
+| Method | Description |
+|--------|-------------|
+| `query.execute(sql)` | Execute a SQL query against stream data |
+| `query.execute(sql, params)` | Execute a parameterized query |
+
+## Error Handling
+
+```java
+import com.streamlinelabs.StreamlineException;
+import com.streamlinelabs.TopicNotFoundException;
+
+try {
+    client.produce("my-topic", "key", "value");
+} catch (TopicNotFoundException e) {
+    System.out.println("Topic not found: " + e.getMessage());
+    System.out.println("Hint: " + e.getHint());
+} catch (StreamlineException e) {
+    if (e.isRetryable()) {
+        System.out.println("Retryable error: " + e.getMessage());
+    } else {
+        System.out.println("Fatal error: " + e.getMessage());
+    }
+}
+```
+
+## Contributing
+
+Contributions are welcome! Please see the [organization contributing guide](https://github.com/streamlinelabs/.github/blob/main/CONTRIBUTING.md) for guidelines.
 
 ## License
 
