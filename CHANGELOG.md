@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 - fix: resolve thread safety issue in producer pool (2026-03-06)
+
+- feat: add schema registry usage example (2026-03-06)
 ## [Unreleased]
 
 ## [0.2.0] - 2026-02-28
