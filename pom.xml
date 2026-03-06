@@ -20,6 +20,21 @@
         </license>
     </licenses>
 
+    <developers>
+        <developer>
+            <name>Streamline Team</name>
+            <email>team@streamlinelabs.dev</email>
+            <organization>StreamlineLabs</organization>
+            <organizationUrl>https://github.com/streamlinelabs</organizationUrl>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:https://github.com/streamlinelabs/streamline-java-sdk.git</connection>
+        <developerConnection>scm:git:git@github.com:streamlinelabs/streamline-java-sdk.git</developerConnection>
+        <url>https://github.com/streamlinelabs/streamline-java-sdk</url>
+    </scm>
+
     <modules>
         <module>streamline-client</module>
         <module>streamline-spring-boot-starter</module>
