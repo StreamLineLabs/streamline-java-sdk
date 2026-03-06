@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Circuit breaker pattern (`CircuitBreaker.java`) with configurable thresholds and execute() wrapper
+- Circuit breaker usage example (`CircuitBreakerUsage.java`)
+- TLS/SASL authentication example (`SecurityUsage.java`)
+- CircuitBreaker test suite (14 tests covering state transitions, thresholds, error classification)
+- `isRetryable()` method on `StreamlineException` for circuit breaker integration
+
+### Fixed
+- Producer now wires `compressionType` and `idempotent` settings to Kafka ProducerConfig
+- Producer now wires `retries`, `retryBackoffMs`, and `maxRequestSize` to Kafka ProducerConfig
+
+### Changed
 - fix: resolve thread safety issue in producer pool (2026-03-06)
 - feat: add schema registry usage example (2026-03-06)
 - **Changed**: update Kafka client dependency to 3.7

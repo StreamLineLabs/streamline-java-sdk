@@ -309,6 +309,30 @@ try {
 | `sasl-mechanism` | — | SASL mechanism: `PLAIN`, `SCRAM-SHA-256`, `SCRAM-SHA-512` |
 | `ssl-truststore-location` | — | Path to TLS trust store |
 
+## Circuit Breaker
+
+Protect your application from cascading failures when the Streamline server is unresponsive:
+
+```java
+import dev.streamline.client.CircuitBreaker;
+
+CircuitBreaker breaker = new CircuitBreaker(
+    CircuitBreaker.Config.builder()
+        .failureThreshold(5)       // Open after 5 consecutive failures
+        .successThreshold(2)       // Close after 2 half-open successes
+        .openTimeout(Duration.ofSeconds(30))
+        .onStateChange((from, to) -> log.info("Circuit: {} → {}", from, to))
+        .build()
+);
+
+// Wrap producer calls
+RecordMetadata result = breaker.execute(() ->
+    producer.send("events", "user-1", payload).get()
+);
+```
+
+When the circuit is open, `execute()` throws a retryable `StreamlineException`. See the [Circuit Breaker guide](https://streamlinelabs.dev/docs/features/circuit-breaker) for details.
+
 ## Contributing
 
 Contributions are welcome! Please see the [organization contributing guide](https://github.com/streamlinelabs/.github/blob/main/CONTRIBUTING.md) for guidelines.
