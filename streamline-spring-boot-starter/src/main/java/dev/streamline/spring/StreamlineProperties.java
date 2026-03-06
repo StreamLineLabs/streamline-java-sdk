@@ -41,6 +41,12 @@ public class StreamlineProperties {
     private int requestTimeoutMs = 30000;
 
     /**
+     * Schema Registry URL (HTTP endpoint, e.g., http://localhost:9094).
+     * When set, a SchemaRegistryClient bean is registered automatically.
+     */
+    private String schemaRegistryUrl;
+
+    /**
      * Producer configuration.
      */
     private ProducerProperties producer = new ProducerProperties();
@@ -82,6 +88,14 @@ public class StreamlineProperties {
 
     public void setRequestTimeoutMs(int requestTimeoutMs) {
         this.requestTimeoutMs = requestTimeoutMs;
+    }
+
+    public String getSchemaRegistryUrl() {
+        return schemaRegistryUrl;
+    }
+
+    public void setSchemaRegistryUrl(String schemaRegistryUrl) {
+        this.schemaRegistryUrl = schemaRegistryUrl;
     }
 
     public ProducerProperties getProducer() {

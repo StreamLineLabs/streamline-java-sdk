@@ -3,9 +3,11 @@ package dev.streamline.spring;
 import dev.streamline.client.Streamline;
 import dev.streamline.client.producer.ProducerConfig;
 import dev.streamline.client.consumer.ConsumerConfig;
+import dev.streamline.client.schema.SchemaRegistryClient;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 
@@ -52,5 +54,12 @@ public class StreamlineAutoConfiguration {
     @ConditionalOnMissingBean
     public StreamlineTemplate streamlineTemplate(Streamline streamline) {
         return new StreamlineTemplate(streamline);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(prefix = "streamline", name = "schema-registry-url")
+    public SchemaRegistryClient schemaRegistryClient(StreamlineProperties properties) {
+        return new SchemaRegistryClient(properties.getSchemaRegistryUrl());
     }
 }

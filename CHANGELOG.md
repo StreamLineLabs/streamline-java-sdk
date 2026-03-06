@@ -6,12 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-- fix: resolve thread safety issue in producer pool (2026-03-06)
-
-- feat: add schema registry usage example (2026-03-06)
 ## [Unreleased]
 
-## [0.2.0] - 2026-02-28
+- fix: resolve thread safety issue in producer pool (2026-03-06)
+- feat: add schema registry usage example (2026-03-06)
 - **Changed**: update Kafka client dependency to 3.7
 - **Testing**: add Testcontainers integration test suite
 - **Changed**: simplify Maven module dependency tree
@@ -26,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Performance
 - Optimize batch producer flush strategy
+
 
 ## [0.2.0] - 2026-02-18
 

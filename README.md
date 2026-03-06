@@ -270,6 +270,45 @@ try {
 }
 ```
 
+## Configuration Reference
+
+### Client
+
+| Parameter | Default | Description |
+|---|---|---|
+| `bootstrap-servers` | `localhost:9092` | Comma-separated list of Streamline broker addresses |
+| `client-id` | auto-generated | Client identifier for server-side logging |
+
+### Producer
+
+| Parameter | Default | Description |
+|---|---|---|
+| `batch-size` | `16384` | Maximum batch size in bytes before flushing |
+| `linger-ms` | `0` | Time to wait for additional messages before sending a batch |
+| `compression-type` | `none` | Compression codec: `none`, `gzip`, `snappy`, `lz4`, `zstd` |
+| `acks` | `1` | Acknowledgment level: `0` (none), `1` (leader), `-1` (all replicas) |
+| `retries` | `3` | Number of retries on transient failures |
+| `enable.idempotence` | `false` | Enable exactly-once semantics |
+
+### Consumer
+
+| Parameter | Default | Description |
+|---|---|---|
+| `group-id` | *(required)* | Consumer group identifier |
+| `auto-offset-reset` | `latest` | Where to start when no committed offset exists: `earliest`, `latest` |
+| `enable-auto-commit` | `true` | Automatically commit offsets after polling |
+| `auto-commit-interval-ms` | `5000` | Interval between auto-commits in milliseconds |
+| `max-poll-records` | `500` | Maximum records returned per poll |
+| `session-timeout-ms` | `30000` | Session timeout for consumer group membership |
+
+### Security
+
+| Parameter | Default | Description |
+|---|---|---|
+| `security-protocol` | `PLAINTEXT` | Protocol: `PLAINTEXT`, `SSL`, `SASL_PLAINTEXT`, `SASL_SSL` |
+| `sasl-mechanism` | — | SASL mechanism: `PLAIN`, `SCRAM-SHA-256`, `SCRAM-SHA-512` |
+| `ssl-truststore-location` | — | Path to TLS trust store |
+
 ## Contributing
 
 Contributions are welcome! Please see the [organization contributing guide](https://github.com/streamlinelabs/.github/blob/main/CONTRIBUTING.md) for guidelines.
