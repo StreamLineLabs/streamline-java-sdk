@@ -53,7 +53,11 @@ public class Producer<K, V> implements Closeable {
         props.put(org.apache.kafka.clients.producer.ProducerConfig.BATCH_SIZE_CONFIG, producerConfig.batchSize());
         props.put(org.apache.kafka.clients.producer.ProducerConfig.LINGER_MS_CONFIG, producerConfig.lingerMs());
         props.put(org.apache.kafka.clients.producer.ProducerConfig.ACKS_CONFIG, "all");
-        props.put(org.apache.kafka.clients.producer.ProducerConfig.RETRIES_CONFIG, 3);
+        props.put(org.apache.kafka.clients.producer.ProducerConfig.RETRIES_CONFIG, producerConfig.retries());
+        props.put(org.apache.kafka.clients.producer.ProducerConfig.RETRY_BACKOFF_MS_CONFIG, producerConfig.retryBackoffMs());
+        props.put(org.apache.kafka.clients.producer.ProducerConfig.COMPRESSION_TYPE_CONFIG, producerConfig.compressionType());
+        props.put(org.apache.kafka.clients.producer.ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, producerConfig.idempotent());
+        props.put(org.apache.kafka.clients.producer.ProducerConfig.MAX_REQUEST_SIZE_CONFIG, producerConfig.maxRequestSize());
 
         this.kafkaProducer = new KafkaProducer<>(props);
         log.debug("Producer created with batch size {}", producerConfig.batchSize());
