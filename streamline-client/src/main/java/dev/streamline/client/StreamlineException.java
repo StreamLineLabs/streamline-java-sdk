@@ -7,13 +7,25 @@ public class StreamlineException extends RuntimeException {
 
     private final String errorCode;
     private final String hint;
+    private final boolean retryable;
 
     public StreamlineException(String message) {
-        this(message, null, null, null);
+        this(message, null, false, null);
     }
 
     public StreamlineException(String message, Throwable cause) {
-        this(message, cause, null, null);
+        this(message, cause, false, null);
+    }
+
+    public StreamlineException(String message, boolean retryable) {
+        this(message, null, retryable, null);
+    }
+
+    public StreamlineException(String message, Throwable cause, boolean retryable, String hint) {
+        super(message, cause);
+        this.errorCode = null;
+        this.hint = hint;
+        this.retryable = retryable;
     }
 
     public StreamlineException(String message, String errorCode) {
@@ -24,6 +36,7 @@ public class StreamlineException extends RuntimeException {
         super(message, cause);
         this.errorCode = errorCode;
         this.hint = hint;
+        this.retryable = isRetryableCode(errorCode);
     }
 
     /**
@@ -38,6 +51,18 @@ public class StreamlineException extends RuntimeException {
      */
     public String getHint() {
         return hint;
+    }
+
+    /**
+     * Returns whether this error is transient and the operation can be retried.
+     */
+    public boolean isRetryable() {
+        return retryable;
+    }
+
+    private static boolean isRetryableCode(String code) {
+        if (code == null) return false;
+        return "CONNECTION_FAILED".equals(code) || "TIMEOUT".equals(code);
     }
 
     /**
@@ -76,4 +101,3 @@ public class StreamlineException extends RuntimeException {
         );
     }
 }
-// simplify consumer thread management
