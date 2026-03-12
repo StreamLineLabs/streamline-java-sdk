@@ -39,12 +39,18 @@ public class Producer<K, V> implements Closeable {
     private final StreamlineConfig config;
     private final ProducerConfig producerConfig;
     private final KafkaProducer<byte[], byte[]> kafkaProducer;
+    private final CircuitBreaker circuitBreaker;
     private volatile boolean closed = false;
 
     public Producer(ConnectionPool connectionPool, StreamlineConfig config, ProducerConfig producerConfig) {
+        this(connectionPool, config, producerConfig, null);
+    }
+
+    public Producer(ConnectionPool connectionPool, StreamlineConfig config, ProducerConfig producerConfig, CircuitBreaker circuitBreaker) {
         this.connectionPool = connectionPool;
         this.config = config;
         this.producerConfig = producerConfig;
+        this.circuitBreaker = circuitBreaker;
 
         Properties props = new Properties();
         props.put(org.apache.kafka.clients.producer.ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getBootstrapServers());
@@ -93,6 +99,17 @@ public class Producer<K, V> implements Closeable {
             throw new IllegalArgumentException("Value must not be null");
         }
 
+        if (circuitBreaker != null && !circuitBreaker.allow()) {
+            CompletableFuture<RecordMetadata> rejected = new CompletableFuture<>();
+            rejected.completeExceptionally(new StreamlineException(
+                "Circuit breaker is open — too many recent failures",
+                null,
+                true,
+                "The client detected repeated failures and is temporarily pausing requests."
+            ));
+            return rejected;
+        }
+
         byte[] keyBytes = key != null ? serializeToBytes(key) : null;
         byte[] valueBytes = serializeToBytes(value);
 
@@ -106,8 +123,14 @@ public class Producer<K, V> implements Closeable {
         CompletableFuture<RecordMetadata> future = new CompletableFuture<>();
         kafkaProducer.send(record, (metadata, exception) -> {
             if (exception != null) {
+                if (circuitBreaker != null) {
+                    circuitBreaker.recordFailure();
+                }
                 future.completeExceptionally(new StreamlineException("Failed to send message", exception));
             } else {
+                if (circuitBreaker != null) {
+                    circuitBreaker.recordSuccess();
+                }
                 future.complete(new RecordMetadata(
                     metadata.topic(),
                     metadata.partition(),
@@ -152,6 +175,17 @@ public class Producer<K, V> implements Closeable {
             throw new IllegalArgumentException("Value must not be null");
         }
 
+        if (circuitBreaker != null && !circuitBreaker.allow()) {
+            CompletableFuture<RecordMetadata> rejected = new CompletableFuture<>();
+            rejected.completeExceptionally(new StreamlineException(
+                "Circuit breaker is open — too many recent failures",
+                null,
+                true,
+                "The client detected repeated failures and is temporarily pausing requests."
+            ));
+            return rejected;
+        }
+
         byte[] keyBytes = key != null ? serializeToBytes(key) : null;
         byte[] valueBytes = serializeToBytes(value);
 
@@ -165,8 +199,14 @@ public class Producer<K, V> implements Closeable {
         CompletableFuture<RecordMetadata> future = new CompletableFuture<>();
         kafkaProducer.send(record, (metadata, exception) -> {
             if (exception != null) {
+                if (circuitBreaker != null) {
+                    circuitBreaker.recordFailure();
+                }
                 future.completeExceptionally(new StreamlineException("Failed to send message", exception));
             } else {
+                if (circuitBreaker != null) {
+                    circuitBreaker.recordSuccess();
+                }
                 future.complete(new RecordMetadata(
                     metadata.topic(),
                     metadata.partition(),

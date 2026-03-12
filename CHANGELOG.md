@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Circuit breaker pattern (`CircuitBreaker.java`) with configurable thresholds and execute() wrapper
+- Circuit breaker integration in `Producer` — automatically checks CB before send, records success/failure
 - Circuit breaker usage example (`CircuitBreakerUsage.java`)
 - TLS/SASL authentication example (`SecurityUsage.java`)
 - CircuitBreaker test suite (14 tests covering state transitions, thresholds, error classification)
