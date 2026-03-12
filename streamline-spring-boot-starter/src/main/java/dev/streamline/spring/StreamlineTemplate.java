@@ -1,5 +1,7 @@
 package dev.streamline.spring;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.streamline.client.Headers;
 import dev.streamline.client.RecordMetadata;
 import dev.streamline.client.Streamline;
@@ -27,9 +29,15 @@ public class StreamlineTemplate {
     private static final Logger log = LoggerFactory.getLogger(StreamlineTemplate.class);
 
     private final Streamline streamline;
+    private final ObjectMapper objectMapper;
 
     public StreamlineTemplate(Streamline streamline) {
+        this(streamline, new ObjectMapper());
+    }
+
+    public StreamlineTemplate(Streamline streamline, ObjectMapper objectMapper) {
         this.streamline = streamline;
+        this.objectMapper = objectMapper;
     }
 
     /**
@@ -89,7 +97,11 @@ public class StreamlineTemplate {
         if (value instanceof String) {
             return (String) value;
         }
-        // TODO: Use Jackson for serialization
-        return value.toString();
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (JsonProcessingException e) {
+            log.warn("Failed to serialize value as JSON, falling back to toString()", e);
+            return value.toString();
+        }
     }
 }

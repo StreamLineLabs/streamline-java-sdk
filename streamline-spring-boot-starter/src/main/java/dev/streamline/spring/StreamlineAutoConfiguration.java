@@ -1,5 +1,6 @@
 package dev.streamline.spring;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.streamline.client.Streamline;
 import dev.streamline.client.producer.ProducerConfig;
 import dev.streamline.client.consumer.ConsumerConfig;
@@ -52,8 +53,8 @@ public class StreamlineAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public StreamlineTemplate streamlineTemplate(Streamline streamline) {
-        return new StreamlineTemplate(streamline);
+    public StreamlineTemplate streamlineTemplate(Streamline streamline, ObjectMapper objectMapper) {
+        return new StreamlineTemplate(streamline, objectMapper);
     }
 
     @Bean
