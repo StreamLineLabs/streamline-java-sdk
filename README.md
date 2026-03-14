@@ -333,6 +333,24 @@ RecordMetadata result = breaker.execute(() ->
 
 When the circuit is open, `execute()` throws a retryable `StreamlineException`. See the [Circuit Breaker guide](https://streamlinelabs.dev/docs/features/circuit-breaker) for details.
 
+## Examples
+
+The [`examples/`](examples/src/main/java/com/streamline/examples/) directory contains runnable examples:
+
+| Example | Description |
+|---------|-------------|
+| [BasicUsage](examples/src/main/java/com/streamline/examples/BasicUsage.java) | Produce, consume, and admin operations |
+| [QueryUsage](examples/src/main/java/com/streamline/examples/QueryUsage.java) | SQL analytics with the embedded query engine |
+| [SchemaRegistryUsage](examples/src/main/java/com/streamline/examples/SchemaRegistryUsage.java) | Schema registration and validation |
+| [CircuitBreakerUsage](examples/src/main/java/com/streamline/examples/CircuitBreakerUsage.java) | Resilient production with circuit breaker |
+| [SecurityUsage](examples/src/main/java/com/streamline/examples/SecurityUsage.java) | TLS and SASL authentication |
+
+Run any example with Maven:
+
+```bash
+mvn compile exec:java -Dexec.mainClass=com.streamline.examples.BasicUsage
+```
+
 ## Contributing
 
 Contributions are welcome! Please see the [organization contributing guide](https://github.com/streamlinelabs/.github/blob/main/CONTRIBUTING.md) for guidelines.
