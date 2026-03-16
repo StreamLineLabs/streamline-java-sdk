@@ -18,4 +18,7 @@ jobs:
           cache: maven
 
       - name: Build and test
-        run: mvn verify -q
+        run: mvn verify
+
+      - name: Static analysis
+        run: mvn spotbugs:check -DfailOnError=true

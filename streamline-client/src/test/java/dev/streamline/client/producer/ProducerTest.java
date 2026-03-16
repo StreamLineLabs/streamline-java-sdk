@@ -6,6 +6,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.AbstractMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
@@ -165,5 +168,88 @@ class ProducerTest {
         assertNotNull(future);
         RecordMetadata metadata = future.get();
         assertNotNull(metadata);
+    }
+
+    // --- Transaction tests ---
+
+    @Test
+    void testBeginTransactionThrowsWhenTransactionalIdIsNull() {
+        assertThrows(IllegalStateException.class, () -> producer.beginTransaction());
+    }
+
+    @Test
+    void testCommitTransactionThrowsWhenTransactionalIdIsNull() {
+        assertThrows(IllegalStateException.class, () -> producer.commitTransaction());
+    }
+
+    @Test
+    void testAbortTransactionThrowsWhenTransactionalIdIsNull() {
+        assertThrows(IllegalStateException.class, () -> producer.abortTransaction());
+    }
+
+    @Test
+    void testBeginTransactionThrowsWhenProducerIsClosed() {
+        producer.close();
+        assertThrows(IllegalStateException.class, () -> producer.beginTransaction());
+    }
+
+    @Test
+    void testCommitTransactionThrowsWhenProducerIsClosed() {
+        producer.close();
+        assertThrows(IllegalStateException.class, () -> producer.commitTransaction());
+    }
+
+    @Test
+    void testAbortTransactionThrowsWhenProducerIsClosed() {
+        producer.close();
+        assertThrows(IllegalStateException.class, () -> producer.abortTransaction());
+    }
+
+    // --- sendBatch tests ---
+
+    @Test
+    void testSendBatchReturnsCorrectNumberOfFutures() throws ExecutionException, InterruptedException {
+        List<Map.Entry<String, String>> messages = List.of(
+            new AbstractMap.SimpleEntry<>("k1", "v1"),
+            new AbstractMap.SimpleEntry<>("k2", "v2"),
+            new AbstractMap.SimpleEntry<>("k3", "v3")
+        );
+
+        List<CompletableFuture<RecordMetadata>> futures = producer.sendBatch("test-topic", messages);
+
+        assertNotNull(futures);
+        assertEquals(3, futures.size());
+        for (CompletableFuture<RecordMetadata> future : futures) {
+            RecordMetadata metadata = future.get();
+            assertNotNull(metadata);
+            assertEquals("test-topic", metadata.topic());
+        }
+    }
+
+    @Test
+    void testSendBatchWithNullTopicShouldThrow() {
+        List<Map.Entry<String, String>> messages = List.of(
+            new AbstractMap.SimpleEntry<>("k1", "v1")
+        );
+        assertThrows(IllegalArgumentException.class, () -> producer.sendBatch(null, messages));
+    }
+
+    @Test
+    void testSendBatchWithNullMessagesShouldThrow() {
+        assertThrows(IllegalArgumentException.class, () -> producer.sendBatch("topic", null));
+    }
+
+    @Test
+    void testSendBatchWithEmptyMessagesShouldThrow() {
+        assertThrows(IllegalArgumentException.class, () -> producer.sendBatch("topic", List.of()));
+    }
+
+    @Test
+    void testSendBatchAfterCloseShouldThrow() {
+        producer.close();
+        List<Map.Entry<String, String>> messages = List.of(
+            new AbstractMap.SimpleEntry<>("k1", "v1")
+        );
+        assertThrows(IllegalStateException.class, () -> producer.sendBatch("topic", messages));
     }
 }

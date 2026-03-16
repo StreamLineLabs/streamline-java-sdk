@@ -143,7 +143,7 @@ class ProducerConfigTest {
 
     @Test
     void testDirectRecordConstruction() {
-        ProducerConfig config = new ProducerConfig(1024, 5, 2048, "zstd", 2, 50, true);
+        ProducerConfig config = new ProducerConfig(1024, 5, 2048, "zstd", 2, 50, true, null);
 
         assertEquals(1024, config.batchSize());
         assertEquals(5, config.lingerMs());
@@ -152,12 +152,13 @@ class ProducerConfigTest {
         assertEquals(2, config.retries());
         assertEquals(50, config.retryBackoffMs());
         assertTrue(config.idempotent());
+        assertNull(config.transactionalId());
     }
 
     @Test
     void testDirectConstructionWithNegativeBatchSizeShouldThrow() {
         assertThrows(IllegalArgumentException.class, () ->
-            new ProducerConfig(-1, 1, 1048576, "none", 3, 100, false));
+            new ProducerConfig(-1, 1, 1048576, "none", 3, 100, false, null));
     }
 
     @Test
@@ -167,5 +168,44 @@ class ProducerConfigTest {
 
         assertTrue(str.contains("16384"));
         assertTrue(str.contains("none"));
+    }
+
+    @Test
+    void testDefaultsHaveNullTransactionalId() {
+        ProducerConfig config = ProducerConfig.defaults();
+        assertNull(config.transactionalId());
+    }
+
+    @Test
+    void testBuilderWithTransactionalId() {
+        ProducerConfig config = ProducerConfig.builder()
+            .transactionalId("my-txn-id")
+            .build();
+
+        assertEquals("my-txn-id", config.transactionalId());
+    }
+
+    @Test
+    void testBuilderDefaultTransactionalIdIsNull() {
+        ProducerConfig config = ProducerConfig.builder().build();
+        assertNull(config.transactionalId());
+    }
+
+    @Test
+    void testBlankTransactionalIdShouldThrow() {
+        assertThrows(IllegalArgumentException.class, () ->
+            ProducerConfig.builder().transactionalId("  ").build());
+    }
+
+    @Test
+    void testEmptyTransactionalIdShouldThrow() {
+        assertThrows(IllegalArgumentException.class, () ->
+            ProducerConfig.builder().transactionalId("").build());
+    }
+
+    @Test
+    void testBuilderChainingTransactionalId() {
+        ProducerConfig.Builder builder = ProducerConfig.builder();
+        assertSame(builder, builder.transactionalId("txn-1"));
     }
 }

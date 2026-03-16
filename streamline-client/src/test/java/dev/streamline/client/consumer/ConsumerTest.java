@@ -7,7 +7,11 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import dev.streamline.client.StreamlineException;
+import org.apache.kafka.common.TopicPartition;
+
 import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -101,6 +105,53 @@ class ConsumerTest {
     @Test
     void testClose() {
         assertDoesNotThrow(() -> consumer.close());
+    }
+
+    @Test
+    void testAssignment() {
+        assertNotNull(consumer.assignment());
+        assertTrue(consumer.assignment().isEmpty());
+    }
+
+    @Test
+    void testAssignmentAfterClose() {
+        consumer.close();
+        assertThrows(IllegalStateException.class, () -> consumer.assignment());
+    }
+
+    @Test
+    void testSubscription() {
+        assertNotNull(consumer.subscription());
+        assertTrue(consumer.subscription().isEmpty());
+    }
+
+    @Test
+    void testSubscriptionAfterClose() {
+        consumer.close();
+        assertThrows(IllegalStateException.class, () -> consumer.subscription());
+    }
+
+    @Test
+    void testAssignPartitions() {
+        List<TopicPartition> partitions = Collections.singletonList(new TopicPartition("test-topic", 0));
+        assertDoesNotThrow(() -> consumer.assign(partitions));
+        assertEquals(1, consumer.assignment().size());
+    }
+
+    @Test
+    void testAssignNullThrows() {
+        assertThrows(IllegalArgumentException.class, () -> consumer.assign(null));
+    }
+
+    @Test
+    void testSeekToTimestampNoPartitions() {
+        assertThrows(StreamlineException.class, () -> consumer.seekToTimestamp(System.currentTimeMillis()));
+    }
+
+    @Test
+    void testListTopicsAfterClose() {
+        consumer.close();
+        assertThrows(IllegalStateException.class, () -> consumer.listTopics());
     }
 
     @Test
