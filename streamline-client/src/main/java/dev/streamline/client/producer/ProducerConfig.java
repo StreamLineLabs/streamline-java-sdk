@@ -10,7 +10,8 @@ public record ProducerConfig(
     String compressionType,
     int retries,
     int retryBackoffMs,
-    boolean idempotent
+    boolean idempotent,
+    String transactionalId
 ) {
 
     public ProducerConfig {
@@ -29,6 +30,9 @@ public record ProducerConfig(
         if (retryBackoffMs < 0) {
             throw new IllegalArgumentException("Retry backoff ms must not be negative");
         }
+        if (transactionalId != null && transactionalId.isBlank()) {
+            throw new IllegalArgumentException("Transactional ID must not be blank when set");
+        }
     }
 
     /**
@@ -42,7 +46,8 @@ public record ProducerConfig(
             "none",     // no compression
             3,          // 3 retries
             100,        // 100ms backoff
-            false       // not idempotent by default
+            false,      // not idempotent by default
+            null        // no transactional ID
         );
     }
 
@@ -64,6 +69,7 @@ public record ProducerConfig(
         private int retries = 3;
         private int retryBackoffMs = 100;
         private boolean idempotent = false;
+        private String transactionalId = null;
 
         /**
          * Sets the batch size in bytes.
@@ -122,12 +128,22 @@ public record ProducerConfig(
         }
 
         /**
+         * Sets the transactional ID. When set, transactions are enabled
+         * and idempotence is implicitly required.
+         */
+        public Builder transactionalId(String transactionalId) {
+            this.transactionalId = transactionalId;
+            return this;
+        }
+
+        /**
          * Builds the configuration.
          */
         public ProducerConfig build() {
             return new ProducerConfig(
                 batchSize, lingerMs, maxRequestSize,
-                compressionType, retries, retryBackoffMs, idempotent
+                compressionType, retries, retryBackoffMs, idempotent,
+                transactionalId
             );
         }
     }

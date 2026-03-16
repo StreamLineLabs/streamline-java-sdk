@@ -3,6 +3,8 @@ package dev.streamline.client.consumer;
 import dev.streamline.client.*;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.clients.consumer.OffsetAndTimestamp;
+import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.slf4j.Logger;
@@ -208,6 +210,86 @@ public class Consumer<K, V> implements Closeable {
         ensureOpen();
         kafkaConsumer.resume(kafkaConsumer.assignment());
         log.debug("Consumer resumed");
+    }
+
+    /**
+     * Returns the set of partitions currently assigned to this consumer.
+     *
+     * @return the assigned partitions
+     */
+    public Set<TopicPartition> assignment() {
+        ensureOpen();
+        return kafkaConsumer.assignment();
+    }
+
+    /**
+     * Returns the current topic subscription.
+     *
+     * @return the subscribed topics
+     */
+    public Set<String> subscription() {
+        ensureOpen();
+        return kafkaConsumer.subscription();
+    }
+
+    /**
+     * Manually assigns specific partitions to this consumer.
+     * This disables consumer group coordination.
+     *
+     * @param partitions the partitions to assign
+     */
+    public void assign(Collection<TopicPartition> partitions) {
+        ensureOpen();
+        if (partitions == null) {
+            throw new IllegalArgumentException("Partitions must not be null");
+        }
+        kafkaConsumer.assign(partitions);
+        log.debug("Manually assigned {} partitions", partitions.size());
+    }
+
+    /**
+     * Seeks all assigned partitions to the first offset with a timestamp
+     * greater than or equal to the given timestamp.
+     *
+     * @param timestamp the timestamp in milliseconds since epoch
+     * @throws StreamlineException if the offset lookup fails
+     */
+    public void seekToTimestamp(long timestamp) {
+        ensureOpen();
+        Set<TopicPartition> assigned = kafkaConsumer.assignment();
+        if (assigned.isEmpty()) {
+            throw new StreamlineException(
+                "No partitions assigned — subscribe or assign partitions first",
+                null, false,
+                "Call subscribe() or assign() before seeking.");
+        }
+        Map<TopicPartition, Long> timestampMap = new HashMap<>();
+        for (TopicPartition tp : assigned) {
+            timestampMap.put(tp, timestamp);
+        }
+        Map<TopicPartition, OffsetAndTimestamp> offsets = kafkaConsumer.offsetsForTimes(timestampMap);
+        for (Map.Entry<TopicPartition, OffsetAndTimestamp> entry : offsets.entrySet()) {
+            if (entry.getValue() != null) {
+                kafkaConsumer.seek(entry.getKey(), entry.getValue().offset());
+            }
+        }
+        log.debug("Seeked to timestamp {} across {} partitions", timestamp, assigned.size());
+    }
+
+    /**
+     * Lists all topics available on the broker.
+     *
+     * @return map of topic names to partition info
+     * @throws StreamlineException if the request fails
+     */
+    public Map<String, List<PartitionInfo>> listTopics() {
+        ensureOpen();
+        try {
+            return kafkaConsumer.listTopics();
+        } catch (Exception e) {
+            throw new StreamlineException("Failed to list topics", e, true,
+                "Check broker connectivity and permissions.");
+        }
     }
 
     private void ensureOpen() {

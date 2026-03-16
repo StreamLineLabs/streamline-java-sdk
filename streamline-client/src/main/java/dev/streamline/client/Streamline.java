@@ -1,5 +1,6 @@
 package dev.streamline.client;
 
+import dev.streamline.client.admin.AdminClient;
 import dev.streamline.client.producer.Producer;
 import dev.streamline.client.producer.ProducerConfig;
 import dev.streamline.client.consumer.Consumer;
@@ -135,6 +136,16 @@ public class Streamline implements Closeable {
      */
     public <K, V> Consumer<K, V> consumer(String topic, String groupId) {
         return consumer(topic, ConsumerConfig.builder().groupId(groupId).build());
+    }
+
+    /**
+     * Creates an admin client for managing topics, consumer groups, and cluster metadata.
+     *
+     * @return a new admin client instance
+     */
+    public AdminClient admin() {
+        ensureOpen();
+        return new AdminClient(connectionPool, config);
     }
 
     /**

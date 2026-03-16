@@ -11,6 +11,9 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 
@@ -65,7 +68,18 @@ public class Producer<K, V> implements Closeable {
         props.put(org.apache.kafka.clients.producer.ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, producerConfig.idempotent());
         props.put(org.apache.kafka.clients.producer.ProducerConfig.MAX_REQUEST_SIZE_CONFIG, producerConfig.maxRequestSize());
 
+        if (producerConfig.transactionalId() != null) {
+            props.put(org.apache.kafka.clients.producer.ProducerConfig.TRANSACTIONAL_ID_CONFIG, producerConfig.transactionalId());
+            props.put(org.apache.kafka.clients.producer.ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
+        }
+
         this.kafkaProducer = new KafkaProducer<>(props);
+
+        if (producerConfig.transactionalId() != null) {
+            kafkaProducer.initTransactions();
+            log.debug("Transactions initialized with ID '{}'", producerConfig.transactionalId());
+        }
+
         log.debug("Producer created with batch size {}", producerConfig.batchSize());
     }
 
@@ -228,6 +242,80 @@ public class Producer<K, V> implements Closeable {
         log.debug("Producer flushed");
     }
 
+    /**
+     * Begins a new transaction. Must be called before any transactional sends.
+     * Requires transactionalId to be set in ProducerConfig.
+     *
+     * @throws IllegalStateException if transactions are not enabled
+     * @throws StreamlineException if beginning the transaction fails
+     */
+    public void beginTransaction() {
+        ensureOpen();
+        ensureTransactional();
+        try {
+            kafkaProducer.beginTransaction();
+            log.debug("Transaction started");
+        } catch (Exception e) {
+            throw new StreamlineException("Failed to begin transaction", e, true,
+                "Ensure the transactional ID is unique and the server supports transactions.");
+        }
+    }
+
+    /**
+     * Commits the current transaction. All messages sent since beginTransaction()
+     * will be made visible to consumers atomically.
+     *
+     * @throws StreamlineException if the commit fails
+     */
+    public void commitTransaction() {
+        ensureOpen();
+        ensureTransactional();
+        try {
+            kafkaProducer.commitTransaction();
+            log.debug("Transaction committed");
+        } catch (Exception e) {
+            throw new StreamlineException("Failed to commit transaction", e, true,
+                "The transaction may have timed out. Check transaction.timeout.ms configuration.");
+        }
+    }
+
+    /**
+     * Aborts the current transaction. All messages sent since beginTransaction()
+     * will be discarded.
+     *
+     * @throws StreamlineException if the abort fails
+     */
+    public void abortTransaction() {
+        ensureOpen();
+        ensureTransactional();
+        try {
+            kafkaProducer.abortTransaction();
+            log.debug("Transaction aborted");
+        } catch (Exception e) {
+            throw new StreamlineException("Failed to abort transaction", e, false,
+                "Transaction abort failed. The producer may need to be recreated.");
+        }
+    }
+
+    /**
+     * Sends a batch of messages to the specified topic.
+     *
+     * @param topic    the topic name
+     * @param messages list of key-value pairs to send
+     * @return a list of futures, one per message
+     */
+    public List<CompletableFuture<RecordMetadata>> sendBatch(String topic, List<Map.Entry<K, V>> messages) {
+        ensureOpen();
+        if (topic == null) throw new IllegalArgumentException("Topic must not be null");
+        if (messages == null || messages.isEmpty()) throw new IllegalArgumentException("Messages must not be empty");
+
+        List<CompletableFuture<RecordMetadata>> futures = new ArrayList<>(messages.size());
+        for (Map.Entry<K, V> entry : messages) {
+            futures.add(send(topic, entry.getKey(), entry.getValue()));
+        }
+        return futures;
+    }
+
     @SuppressWarnings("unchecked")
     private byte[] serializeToBytes(Object obj) {
         if (obj instanceof byte[]) {
@@ -242,6 +330,13 @@ public class Producer<K, V> implements Closeable {
     private void ensureOpen() {
         if (closed) {
             throw new IllegalStateException("Producer is closed");
+        }
+    }
+
+    private void ensureTransactional() {
+        if (producerConfig.transactionalId() == null) {
+            throw new IllegalStateException(
+                "Transactions are not enabled. Set transactionalId in ProducerConfig to use transactions.");
         }
     }
 
