@@ -5,6 +5,7 @@ import dev.streamline.client.Streamline;
 import dev.streamline.client.producer.ProducerConfig;
 import dev.streamline.client.consumer.ConsumerConfig;
 import dev.streamline.client.schema.SchemaRegistryClient;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -62,5 +63,25 @@ public class StreamlineAutoConfiguration {
     @ConditionalOnProperty(prefix = "streamline", name = "schema-registry-url")
     public SchemaRegistryClient schemaRegistryClient(StreamlineProperties properties) {
         return new SchemaRegistryClient(properties.getSchemaRegistryUrl());
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnClass(name = "org.springframework.boot.actuate.health.HealthIndicator")
+    public StreamlineHealthIndicator streamlineHealthIndicator(Streamline streamline) {
+        return new StreamlineHealthIndicator(streamline);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public StreamlineListenerContainerProcessor streamlineListenerContainerProcessor(Streamline streamline) {
+        return new StreamlineListenerContainerProcessor(streamline);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnClass(name = "io.micrometer.core.instrument.MeterRegistry")
+    public StreamlineMetrics streamlineMetrics(MeterRegistry registry) {
+        return new StreamlineMetrics(registry);
     }
 }
