@@ -72,3 +72,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Apache 2.0 license
 - test: add BatchAccumulator unit test scaffolding
 - test: add WireFormat serialization test coverage
+- test: add BatchAccumulator edge case and boundary tests
