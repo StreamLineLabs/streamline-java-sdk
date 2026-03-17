@@ -71,3 +71,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Testcontainers support for integration testing
 - Apache 2.0 license
 - test: add BatchAccumulator unit test scaffolding
+- test: add WireFormat serialization test coverage
