@@ -11,6 +11,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.*;
@@ -290,6 +294,137 @@ public class Consumer<K, V> implements Closeable {
             throw new StreamlineException("Failed to list topics", e, true,
                 "Check broker connectivity and permissions.");
         }
+    }
+
+    /**
+     * Searches a topic using semantic search via the HTTP API.
+     *
+     * <p>Sends a {@code POST /api/v1/topics/{topic}/search} request to the
+     * Streamline HTTP API (default port 9094).
+     *
+     * @param topic the topic to search
+     * @param query the free-text search query
+     * @param k     the maximum number of results
+     * @return a list of search results ordered by descending score
+     * @throws StreamlineException if the search request fails
+     */
+    public List<SearchResult> search(String topic, String query, int k) {
+        ensureOpen();
+        String host = config.getBootstrapServers().split(",")[0].split(":")[0];
+        String baseUrl = "http://" + host + ":9094";
+
+        try {
+            HttpClient httpClient = HttpClient.newBuilder()
+                    .connectTimeout(Duration.ofSeconds(10))
+                    .build();
+
+            String jsonBody = String.format(
+                    "{\"query\":\"%s\",\"k\":%d}",
+                    query.replace("\"", "\\\""), k);
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(baseUrl + "/api/v1/topics/" + topic + "/search"))
+                    .header("Content-Type", "application/json")
+                    .timeout(Duration.ofSeconds(30))
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() != 200) {
+                throw new StreamlineException(
+                        "Search failed: HTTP " + response.statusCode() + ": " + response.body(),
+                        null, true,
+                        "Check that the topic exists and supports semantic search.");
+            }
+
+            return parseSearchResults(response.body());
+        } catch (StreamlineException e) {
+            throw e;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new StreamlineException("Search interrupted", e, true, "Retry the search.");
+        } catch (Exception e) {
+            throw new StreamlineException("Search request failed: " + e.getMessage(), e, true,
+                    "Check broker connectivity on the HTTP API port (default 9094).");
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<SearchResult> parseSearchResults(String json) {
+        // Minimal JSON parsing without external dependency — the SDK already uses
+        // Kafka client which doesn't bundle a JSON library on the compile classpath.
+        // In production the broker returns small payloads, so indexOf-based parsing
+        // is acceptable. For robustness a Jackson ObjectMapper could be injected.
+        List<SearchResult> results = new ArrayList<>();
+        int hitsStart = json.indexOf("\"hits\"");
+        if (hitsStart < 0) return results;
+
+        int arrStart = json.indexOf('[', hitsStart);
+        if (arrStart < 0) return results;
+
+        int pos = arrStart + 1;
+        while (pos < json.length()) {
+            int objStart = json.indexOf('{', pos);
+            if (objStart < 0) break;
+            int objEnd = json.indexOf('}', objStart);
+            if (objEnd < 0) break;
+
+            String obj = json.substring(objStart, objEnd + 1);
+            int partition = extractInt(obj, "partition");
+            long offset = extractLong(obj, "offset");
+            double score = extractDouble(obj, "score");
+            String value = extractString(obj, "value");
+
+            results.add(new SearchResult(partition, offset, score, value));
+            pos = objEnd + 1;
+        }
+
+        return results;
+    }
+
+    private static int extractInt(String json, String key) {
+        return (int) extractLong(json, key);
+    }
+
+    private static long extractLong(String json, String key) {
+        int idx = json.indexOf("\"" + key + "\"");
+        if (idx < 0) return 0;
+        int colon = json.indexOf(':', idx);
+        if (colon < 0) return 0;
+        int start = colon + 1;
+        while (start < json.length() && json.charAt(start) == ' ') start++;
+        int end = start;
+        while (end < json.length() && (Character.isDigit(json.charAt(end)) || json.charAt(end) == '-')) end++;
+        if (start == end) return 0;
+        return Long.parseLong(json.substring(start, end));
+    }
+
+    private static double extractDouble(String json, String key) {
+        int idx = json.indexOf("\"" + key + "\"");
+        if (idx < 0) return 0.0;
+        int colon = json.indexOf(':', idx);
+        if (colon < 0) return 0.0;
+        int start = colon + 1;
+        while (start < json.length() && json.charAt(start) == ' ') start++;
+        int end = start;
+        while (end < json.length() && (Character.isDigit(json.charAt(end)) || json.charAt(end) == '.' || json.charAt(end) == '-' || json.charAt(end) == 'E' || json.charAt(end) == 'e' || json.charAt(end) == '+')) end++;
+        if (start == end) return 0.0;
+        return Double.parseDouble(json.substring(start, end));
+    }
+
+    private static String extractString(String json, String key) {
+        int idx = json.indexOf("\"" + key + "\"");
+        if (idx < 0) return null;
+        int colon = json.indexOf(':', idx);
+        if (colon < 0) return null;
+        int start = colon + 1;
+        while (start < json.length() && json.charAt(start) == ' ') start++;
+        if (start >= json.length() || json.charAt(start) != '"') return null;
+        start++; // skip opening quote
+        int end = json.indexOf('"', start);
+        if (end < 0) return null;
+        return json.substring(start, end);
     }
 
     private void ensureOpen() {
