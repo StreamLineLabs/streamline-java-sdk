@@ -56,6 +56,11 @@ public class StreamlineProperties {
      */
     private ConsumerProperties consumer = new ConsumerProperties();
 
+    /**
+     * Moonshot HTTP-API client configuration.
+     */
+    private MoonshotProperties moonshot = new MoonshotProperties();
+
     // Getters and setters
 
     public String getBootstrapServers() {
@@ -112,6 +117,14 @@ public class StreamlineProperties {
 
     public void setConsumer(ConsumerProperties consumer) {
         this.consumer = consumer;
+    }
+
+    public MoonshotProperties getMoonshot() {
+        return moonshot;
+    }
+
+    public void setMoonshot(MoonshotProperties moonshot) {
+        this.moonshot = moonshot;
     }
 
     /**
@@ -184,5 +197,32 @@ public class StreamlineProperties {
 
         public int getMaxPollIntervalMs() { return maxPollIntervalMs; }
         public void setMaxPollIntervalMs(int maxPollIntervalMs) { this.maxPollIntervalMs = maxPollIntervalMs; }
+    }
+
+    /**
+     * Moonshot HTTP API configuration. Set {@code http-url} to enable the
+     * branch admin, contracts, attestation, semantic search and memory clients.
+     */
+    public static class MoonshotProperties {
+        /** Base URL of the broker HTTP API (e.g., http://localhost:9094). When null, no clients are registered. */
+        private String httpUrl;
+        /** HTTP client timeout in milliseconds. */
+        private long timeoutMs = 10_000L;
+        /** Default key id used by the AttestationClient. */
+        private String attestationKeyId = "broker-0";
+        /** Default signing algorithm used by the AttestationClient. */
+        private String attestationAlgorithm = "ed25519";
+
+        public String getHttpUrl() { return httpUrl; }
+        public void setHttpUrl(String httpUrl) { this.httpUrl = httpUrl; }
+
+        public long getTimeoutMs() { return timeoutMs; }
+        public void setTimeoutMs(long timeoutMs) { this.timeoutMs = timeoutMs; }
+
+        public String getAttestationKeyId() { return attestationKeyId; }
+        public void setAttestationKeyId(String attestationKeyId) { this.attestationKeyId = attestationKeyId; }
+
+        public String getAttestationAlgorithm() { return attestationAlgorithm; }
+        public void setAttestationAlgorithm(String attestationAlgorithm) { this.attestationAlgorithm = attestationAlgorithm; }
     }
 }
