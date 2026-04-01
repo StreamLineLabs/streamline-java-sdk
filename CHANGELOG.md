@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `dev.streamline.client.moonshot` package — HTTP clients for the Streamline
+  Moonshot control plane (port `9094`):
+  - `BranchesClient` (M5 — list / create / delete / merge branches)
+  - `ContractsClient` (M4 — register / get / validate JSON-Schema contracts)
+  - `AttestationClient` (M4 — request signatures, verify them)
+  - `SearchClient` (M2 — semantic search across topics)
+  - `MemoryClient` (M1 — agent memory remember / recall)
+- Spring Boot starter (`streamline-spring-boot-starter`) auto-wires the five
+  moonshot clients when `streamline.moonshot.http-url` is set.
+
+### Added
 - Circuit breaker pattern (`CircuitBreaker.java`) with configurable thresholds and execute() wrapper
 - Circuit breaker integration in `Producer` — automatically checks CB before send, records success/failure
 - Circuit breaker usage example (`CircuitBreakerUsage.java`)

@@ -3,6 +3,8 @@ package dev.streamline.client.admin;
 import dev.streamline.client.ConnectionPool;
 import dev.streamline.client.StreamlineConfig;
 import dev.streamline.client.StreamlineException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.ConsumerGroupDescription;
@@ -19,9 +21,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
@@ -54,6 +64,9 @@ public class AdminClient implements Closeable {
     private final StreamlineConfig config;
     private final Admin kafkaAdmin;
     private volatile boolean closed = false;
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private final String httpUrl;
+    private final HttpClient httpClient;
 
     public AdminClient(ConnectionPool connectionPool, StreamlineConfig config) {
         this.connectionPool = Objects.requireNonNull(connectionPool, "connectionPool must not be null");
@@ -65,6 +78,12 @@ public class AdminClient implements Closeable {
         props.put(AdminClientConfig.DEFAULT_API_TIMEOUT_MS_CONFIG, config.getRequestTimeoutMs());
 
         this.kafkaAdmin = Admin.create(props);
+        String bootstrap = config.getBootstrapServers();
+        String host = bootstrap.contains(":") ? bootstrap.substring(0, bootstrap.indexOf(":")) : bootstrap;
+        this.httpUrl = "http://" + host + ":9094";
+        this.httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(10))
+                .build();
         log.debug("AdminClient created for bootstrap servers: {}", config.getBootstrapServers());
     }
 
@@ -276,6 +295,136 @@ public class AdminClient implements Closeable {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new StreamlineException("Interrupted while describing cluster", e);
+        }
+    }
+
+    // -- Branch operations (M5, Experimental) --------------------------------
+
+    /**
+     * Information about a copy-on-write topic branch (M5, Experimental).
+     *
+     * @param name       Branch name
+     * @param baseTopic  The base topic this branch forks from
+     * @param state      Branch state ({@code "active"}, {@code "discarded"}, {@code "merged"})
+     * @param createdAt  Creation timestamp (epoch milliseconds)
+     */
+    public record BranchInfo(String name, String baseTopic, String state, long createdAt) {}
+
+    /**
+     * Creates a copy-on-write branch of a topic.
+     *
+     * @param name        branch name
+     * @param baseTopic   topic to branch from
+     * @param baseOffsets per-partition base offsets (may be {@code null})
+     * @return information about the created branch
+     * @throws StreamlineException if the HTTP request fails
+     */
+    public BranchInfo createBranch(String name, String baseTopic, Map<Integer, Long> baseOffsets) {
+        ensureOpen();
+        Objects.requireNonNull(name, "name must not be null");
+        Objects.requireNonNull(baseTopic, "baseTopic must not be null");
+        try {
+            var body = new java.util.LinkedHashMap<String, Object>();
+            body.put("name", name);
+            body.put("base_topic", baseTopic);
+            if (baseOffsets != null && !baseOffsets.isEmpty()) {
+                body.put("base_offsets", baseOffsets);
+            }
+            byte[] json = MAPPER.writeValueAsBytes(body);
+            HttpRequest req = HttpRequest.newBuilder(URI.create(httpUrl + "/api/v1/branches"))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofByteArray(json))
+                    .build();
+            HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+            if (resp.statusCode() < 200 || resp.statusCode() >= 300) {
+                throw new StreamlineException("Failed to create branch: HTTP " + resp.statusCode() + ": " + resp.body());
+            }
+            JsonNode node = MAPPER.readTree(resp.body());
+            return new BranchInfo(
+                    node.path("name").asText(name),
+                    node.path("base_topic").asText(baseTopic),
+                    node.path("state").asText("active"),
+                    node.path("created_at").asLong(0));
+        } catch (StreamlineException e) {
+            throw e;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new StreamlineException("Interrupted while creating branch: " + name, e);
+        } catch (Exception e) {
+            throw new StreamlineException("Failed to create branch: " + name, e);
+        }
+    }
+
+    /**
+     * Lists copy-on-write topic branches.
+     *
+     * @param topic filter by base topic (may be {@code null} for all)
+     * @return list of branch info objects
+     * @throws StreamlineException if the HTTP request fails
+     */
+    public List<BranchInfo> listBranches(String topic) {
+        ensureOpen();
+        try {
+            String path = "/api/v1/branches";
+            if (topic != null && !topic.isEmpty()) {
+                path += "?topic=" + java.net.URLEncoder.encode(topic, StandardCharsets.UTF_8);
+            }
+            HttpRequest req = HttpRequest.newBuilder(URI.create(httpUrl + path))
+                    .GET()
+                    .build();
+            HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+            if (resp.statusCode() < 200 || resp.statusCode() >= 300) {
+                throw new StreamlineException("Failed to list branches: HTTP " + resp.statusCode());
+            }
+            JsonNode root = MAPPER.readTree(resp.body());
+            JsonNode arr = root.isArray() ? root : root.path("items");
+            List<BranchInfo> result = new ArrayList<>();
+            if (arr.isArray()) {
+                for (JsonNode n : arr) {
+                    result.add(new BranchInfo(
+                            n.path("name").asText(""),
+                            n.path("base_topic").asText(""),
+                            n.path("state").asText("active"),
+                            n.path("created_at").asLong(0)));
+                }
+            }
+            return result;
+        } catch (StreamlineException e) {
+            throw e;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new StreamlineException("Interrupted while listing branches", e);
+        } catch (Exception e) {
+            throw new StreamlineException("Failed to list branches", e);
+        }
+    }
+
+    /**
+     * Discards (deletes) a copy-on-write topic branch.
+     *
+     * @param branchId branch identifier
+     * @throws StreamlineException if the HTTP request fails
+     */
+    public void discardBranch(String branchId) {
+        ensureOpen();
+        Objects.requireNonNull(branchId, "branchId must not be null");
+        try {
+            String path = "/api/v1/branches/" + java.net.URLEncoder.encode(branchId, StandardCharsets.UTF_8);
+            HttpRequest req = HttpRequest.newBuilder(URI.create(httpUrl + path))
+                    .DELETE()
+                    .build();
+            HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+            if (resp.statusCode() < 200 || resp.statusCode() >= 300) {
+                throw new StreamlineException("Failed to discard branch: HTTP " + resp.statusCode() + ": " + resp.body());
+            }
+            log.info("Discarded branch '{}'", branchId);
+        } catch (StreamlineException e) {
+            throw e;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new StreamlineException("Interrupted while discarding branch: " + branchId, e);
+        } catch (Exception e) {
+            throw new StreamlineException("Failed to discard branch: " + branchId, e);
         }
     }
 

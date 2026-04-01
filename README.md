@@ -5,6 +5,7 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Java](https://img.shields.io/badge/Java-17%2B-orange.svg)](https://openjdk.org/)
 [![Docs](https://img.shields.io/badge/docs-streamlinelabs.dev-blue.svg)](https://streamlinelabs.dev/docs/sdks/java)
+[![Maven Central](https://img.shields.io/maven-central/v/dev.streamline/streamline-client.svg)](https://search.maven.org/artifact/dev.streamline/streamline-client)
 
 Native Java client library for Streamline with Spring Boot integration.
 
@@ -349,6 +350,59 @@ Run any example with Maven:
 
 ```bash
 mvn compile exec:java -Dexec.mainClass=com.streamline.examples.BasicUsage
+```
+
+## Moonshot Features
+
+> ⚠️ **Experimental** — These features require Streamline server 0.3.0+ with moonshot feature flags enabled.
+
+### Semantic Search
+
+Query topics by meaning instead of offset. Requires a topic created with `semantic.embed=true`.
+
+```java
+List<SearchHit> results = client.search("logs.app", "payment failure", 10);
+for (SearchHit hit : results) {
+    System.out.printf("[p%d] offset=%d score=%.2f%n",
+        hit.getPartition(), hit.getOffset(), hit.getScore());
+}
+```
+
+### Attestation Verification
+
+Verify cryptographic provenance attestations attached to records by data contracts.
+
+```java
+import dev.streamline.client.StreamlineVerifier;
+
+StreamlineVerifier verifier = new StreamlineVerifier(publicKeyBytes);
+VerificationResult result = verifier.verify(record);
+System.out.printf("Verified: %s, Producer: %s%n", result.isVerified(), result.getProducerId());
+```
+
+### Agent Memory (MCP)
+
+Use Streamline as persistent memory for AI agents via the MCP protocol.
+
+```java
+import dev.streamline.client.MemoryClient;
+
+MemoryClient memory = new MemoryClient("http://localhost:9094/mcp/v1");
+memory.remember("user prefers dark mode", Map.of("tags", List.of("preferences")));
+List<MemoryResult> results = memory.recall("user preferences", 5);
+```
+
+### Branched Streams
+
+Create topic branches for replay, A/B testing, or counterfactual analysis.
+
+```java
+BranchInfo branch = admin.createBranch("events", "experiment-v2");
+try (var consumer = client.consumer(branch.getTopic(), "branch-group")) {
+    consumer.subscribe();
+    var records = consumer.poll(Duration.ofMillis(100));
+    // Process branched records independently
+}
 ```
 
 ## Contributing
