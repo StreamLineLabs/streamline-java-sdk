@@ -3,6 +3,7 @@ package dev.streamline.client.admin;
 import dev.streamline.client.ConnectionPool;
 import dev.streamline.client.StreamlineConfig;
 import dev.streamline.client.StreamlineException;
+import dev.streamline.client.TopicNameValidator;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.admin.Admin;
@@ -78,9 +79,7 @@ public class AdminClient implements Closeable {
         props.put(AdminClientConfig.DEFAULT_API_TIMEOUT_MS_CONFIG, config.getRequestTimeoutMs());
 
         this.kafkaAdmin = Admin.create(props);
-        String bootstrap = config.getBootstrapServers();
-        String host = bootstrap.contains(":") ? bootstrap.substring(0, bootstrap.indexOf(":")) : bootstrap;
-        this.httpUrl = "http://" + host + ":9094";
+        this.httpUrl = config.getHttpEndpoint();
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
                 .build();
@@ -99,9 +98,7 @@ public class AdminClient implements Closeable {
      */
     public void createTopic(String name, int partitions, short replicationFactor) {
         ensureOpen();
-        if (name == null) {
-            throw new IllegalArgumentException("Topic name must not be null");
-        }
+        TopicNameValidator.validate(name);
 
         NewTopic newTopic = new NewTopic(name, partitions, replicationFactor);
         try {
@@ -126,9 +123,7 @@ public class AdminClient implements Closeable {
      */
     public void deleteTopic(String name) {
         ensureOpen();
-        if (name == null) {
-            throw new IllegalArgumentException("Topic name must not be null");
-        }
+        TopicNameValidator.validate(name);
 
         try {
             kafkaAdmin.deleteTopics(Collections.singleton(name)).all().get();
@@ -175,9 +170,7 @@ public class AdminClient implements Closeable {
      */
     public TopicDescription describeTopic(String name) {
         ensureOpen();
-        if (name == null) {
-            throw new IllegalArgumentException("Topic name must not be null");
-        }
+        TopicNameValidator.validate(name);
 
         try {
             DescribeTopicsResult result = kafkaAdmin.describeTopics(Collections.singleton(name));

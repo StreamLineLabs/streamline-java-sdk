@@ -2,19 +2,25 @@ package dev.streamline.client;
 
 /**
  * Exception thrown by Streamline client operations.
+ *
+ * <p>Every instance carries a non-null {@code errorCode}. When no specific code
+ * is provided, the code defaults to {@value #UNKNOWN}.
  */
 public class StreamlineException extends RuntimeException {
+
+    /** Default error code used when no specific code is provided. */
+    public static final String UNKNOWN = "UNKNOWN";
 
     private final String errorCode;
     private final String hint;
     private final boolean retryable;
 
     public StreamlineException(String message) {
-        this(message, null, false, null);
+        this(message, (Throwable) null, UNKNOWN, null);
     }
 
     public StreamlineException(String message, Throwable cause) {
-        this(message, cause, false, null);
+        this(message, cause, UNKNOWN, null);
     }
 
     public StreamlineException(String message, boolean retryable) {
@@ -23,7 +29,7 @@ public class StreamlineException extends RuntimeException {
 
     public StreamlineException(String message, Throwable cause, boolean retryable, String hint) {
         super(message, cause);
-        this.errorCode = null;
+        this.errorCode = UNKNOWN;
         this.hint = hint;
         this.retryable = retryable;
     }
@@ -34,13 +40,13 @@ public class StreamlineException extends RuntimeException {
 
     public StreamlineException(String message, Throwable cause, String errorCode, String hint) {
         super(message, cause);
-        this.errorCode = errorCode;
+        this.errorCode = errorCode != null ? errorCode : UNKNOWN;
         this.hint = hint;
         this.retryable = isRetryableCode(errorCode);
     }
 
     /**
-     * Returns the error code, if available.
+     * Returns the error code. Never null; defaults to {@value #UNKNOWN}.
      */
     public String getErrorCode() {
         return errorCode;

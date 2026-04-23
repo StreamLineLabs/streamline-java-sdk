@@ -54,6 +54,7 @@ public class Consumer<K, V> implements Closeable {
     private volatile boolean closed = false;
 
     public Consumer(ConnectionPool connectionPool, StreamlineConfig config, String topic, ConsumerConfig consumerConfig) {
+        TopicNameValidator.validate(topic);
         this.connectionPool = connectionPool;
         this.config = config;
         this.topic = topic;
@@ -310,8 +311,7 @@ public class Consumer<K, V> implements Closeable {
      */
     public List<SearchResult> search(String topic, String query, int k) {
         ensureOpen();
-        String host = config.getBootstrapServers().split(",")[0].split(":")[0];
-        String baseUrl = "http://" + host + ":9094";
+        String baseUrl = config.getHttpEndpoint();
 
         try {
             HttpClient httpClient = HttpClient.newBuilder()

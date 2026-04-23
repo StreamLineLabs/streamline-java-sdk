@@ -200,6 +200,7 @@ public class Streamline implements Closeable {
      */
     public static class Builder {
         private String bootstrapServers;
+        private String httpEndpoint;
         private ProducerConfig producerConfig = ProducerConfig.defaults();
         private ConsumerConfig consumerConfig = ConsumerConfig.defaults();
         private int connectionPoolSize = 4;
@@ -219,6 +220,18 @@ public class Streamline implements Closeable {
          */
         public Builder bootstrapServers(String bootstrapServers) {
             this.bootstrapServers = bootstrapServers;
+            return this;
+        }
+
+        /**
+         * Sets the HTTP API endpoint (e.g. {@code http://localhost:9094}).
+         * When not set, derived from bootstrap servers.
+         *
+         * @param httpEndpoint the HTTP endpoint URL
+         * @return this builder
+         */
+        public Builder httpEndpoint(String httpEndpoint) {
+            this.httpEndpoint = httpEndpoint;
             return this;
         }
 
@@ -324,6 +337,7 @@ public class Streamline implements Closeable {
 
             StreamlineConfig config = StreamlineConfig.builder()
                 .bootstrapServers(bootstrapServers)
+                .httpEndpoint(httpEndpoint)
                 .producerConfig(producerConfig)
                 .consumerConfig(consumerConfig)
                 .connectionPoolSize(connectionPoolSize)

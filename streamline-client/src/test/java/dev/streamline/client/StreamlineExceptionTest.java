@@ -12,7 +12,7 @@ class StreamlineExceptionTest {
 
         assertEquals("something failed", ex.getMessage());
         assertNull(ex.getCause());
-        assertNull(ex.getErrorCode());
+        assertEquals(StreamlineException.UNKNOWN, ex.getErrorCode());
         assertNull(ex.getHint());
     }
 
@@ -23,7 +23,7 @@ class StreamlineExceptionTest {
 
         assertEquals("wrapped", ex.getMessage());
         assertSame(cause, ex.getCause());
-        assertNull(ex.getErrorCode());
+        assertEquals(StreamlineException.UNKNOWN, ex.getErrorCode());
         assertNull(ex.getHint());
     }
 
@@ -89,7 +89,23 @@ class StreamlineExceptionTest {
     @Test
     void testHintAccessor() {
         StreamlineException ex = new StreamlineException("msg", null, null, "Try again later");
+        assertEquals(StreamlineException.UNKNOWN, ex.getErrorCode());
         assertEquals("Try again later", ex.getHint());
+    }
+
+    @Test
+    void testErrorCodeNeverNull() {
+        StreamlineException ex1 = new StreamlineException("msg");
+        assertNotNull(ex1.getErrorCode());
+
+        StreamlineException ex2 = new StreamlineException("msg", new RuntimeException());
+        assertNotNull(ex2.getErrorCode());
+
+        StreamlineException ex3 = new StreamlineException("msg", true);
+        assertNotNull(ex3.getErrorCode());
+
+        StreamlineException ex4 = new StreamlineException("msg", null, null, null);
+        assertEquals(StreamlineException.UNKNOWN, ex4.getErrorCode());
     }
 
     @Test

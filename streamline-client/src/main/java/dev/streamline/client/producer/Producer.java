@@ -106,9 +106,7 @@ public class Producer<K, V> implements Closeable {
      */
     public CompletableFuture<RecordMetadata> send(String topic, K key, V value, Headers headers) {
         ensureOpen();
-        if (topic == null) {
-            throw new IllegalArgumentException("Topic must not be null");
-        }
+        TopicNameValidator.validate(topic);
         if (value == null) {
             throw new IllegalArgumentException("Value must not be null");
         }
@@ -182,9 +180,7 @@ public class Producer<K, V> implements Closeable {
      */
     public CompletableFuture<RecordMetadata> send(String topic, int partition, K key, V value, Headers headers) {
         ensureOpen();
-        if (topic == null) {
-            throw new IllegalArgumentException("Topic must not be null");
-        }
+        TopicNameValidator.validate(topic);
         if (value == null) {
             throw new IllegalArgumentException("Value must not be null");
         }
@@ -306,7 +302,7 @@ public class Producer<K, V> implements Closeable {
      */
     public List<CompletableFuture<RecordMetadata>> sendBatch(String topic, List<Map.Entry<K, V>> messages) {
         ensureOpen();
-        if (topic == null) throw new IllegalArgumentException("Topic must not be null");
+        TopicNameValidator.validate(topic);
         if (messages == null || messages.isEmpty()) throw new IllegalArgumentException("Messages must not be empty");
 
         List<CompletableFuture<RecordMetadata>> futures = new ArrayList<>(messages.size());

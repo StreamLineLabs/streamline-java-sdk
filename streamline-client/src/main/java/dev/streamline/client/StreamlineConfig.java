@@ -14,6 +14,7 @@ import java.util.Objects;
 public class StreamlineConfig {
 
     private final String bootstrapServers;
+    private final String httpEndpoint;
     private final ProducerConfig producerConfig;
     private final ConsumerConfig consumerConfig;
     private final int connectionPoolSize;
@@ -34,13 +35,14 @@ public class StreamlineConfig {
             int connectTimeoutMs,
             int requestTimeoutMs
     ) {
-        this(bootstrapServers, producerConfig, consumerConfig,
+        this(bootstrapServers, null, producerConfig, consumerConfig,
              connectionPoolSize, connectTimeoutMs, requestTimeoutMs,
              SecurityProtocol.PLAINTEXT, null, null);
     }
 
     private StreamlineConfig(
             String bootstrapServers,
+            String httpEndpoint,
             ProducerConfig producerConfig,
             ConsumerConfig consumerConfig,
             int connectionPoolSize,
@@ -51,6 +53,7 @@ public class StreamlineConfig {
             TlsConfig tlsConfig
     ) {
         this.bootstrapServers = bootstrapServers;
+        this.httpEndpoint = httpEndpoint != null ? httpEndpoint : deriveHttpEndpoint(bootstrapServers);
         this.producerConfig = producerConfig;
         this.consumerConfig = consumerConfig;
         this.connectionPoolSize = connectionPoolSize;
@@ -59,6 +62,13 @@ public class StreamlineConfig {
         this.securityProtocol = securityProtocol;
         this.saslConfig = saslConfig;
         this.tlsConfig = tlsConfig;
+    }
+
+    private static String deriveHttpEndpoint(String bootstrapServers) {
+        if (bootstrapServers == null) return "http://localhost:9094";
+        String first = bootstrapServers.split(",")[0].trim();
+        String host = first.contains(":") ? first.substring(0, first.indexOf(":")) : first;
+        return "http://" + host + ":9094";
     }
 
     /**
@@ -74,6 +84,10 @@ public class StreamlineConfig {
 
     public String bootstrapServers() {
         return bootstrapServers;
+    }
+
+    public String httpEndpoint() {
+        return httpEndpoint;
     }
 
     public ProducerConfig producerConfig() {
@@ -103,6 +117,13 @@ public class StreamlineConfig {
      */
     public String getBootstrapServers() {
         return bootstrapServers;
+    }
+
+    /**
+     * Returns the HTTP API endpoint for management operations.
+     */
+    public String getHttpEndpoint() {
+        return httpEndpoint;
     }
 
     /**
@@ -169,6 +190,7 @@ public class StreamlineConfig {
             && connectTimeoutMs == that.connectTimeoutMs
             && requestTimeoutMs == that.requestTimeoutMs
             && Objects.equals(bootstrapServers, that.bootstrapServers)
+            && Objects.equals(httpEndpoint, that.httpEndpoint)
             && Objects.equals(producerConfig, that.producerConfig)
             && Objects.equals(consumerConfig, that.consumerConfig)
             && securityProtocol == that.securityProtocol
@@ -178,7 +200,7 @@ public class StreamlineConfig {
 
     @Override
     public int hashCode() {
-        return Objects.hash(bootstrapServers, producerConfig, consumerConfig,
+        return Objects.hash(bootstrapServers, httpEndpoint, producerConfig, consumerConfig,
             connectionPoolSize, connectTimeoutMs, requestTimeoutMs,
             securityProtocol, saslConfig, tlsConfig);
     }
@@ -195,6 +217,7 @@ public class StreamlineConfig {
      */
     public static class Builder {
         private String bootstrapServers;
+        private String httpEndpoint;
         private ProducerConfig producerConfig = ProducerConfig.defaults();
         private ConsumerConfig consumerConfig = ConsumerConfig.defaults();
         private int connectionPoolSize = 4;
@@ -208,6 +231,15 @@ public class StreamlineConfig {
 
         public Builder bootstrapServers(String bootstrapServers) {
             this.bootstrapServers = bootstrapServers;
+            return this;
+        }
+
+        /**
+         * Sets the HTTP API endpoint (e.g. {@code http://localhost:9094}).
+         * When not set, derived from bootstrap servers.
+         */
+        public Builder httpEndpoint(String httpEndpoint) {
+            this.httpEndpoint = httpEndpoint;
             return this;
         }
 
@@ -254,7 +286,7 @@ public class StreamlineConfig {
         public StreamlineConfig build() {
             Objects.requireNonNull(bootstrapServers, "bootstrapServers must be set");
             return new StreamlineConfig(
-                bootstrapServers, producerConfig, consumerConfig,
+                bootstrapServers, httpEndpoint, producerConfig, consumerConfig,
                 connectionPoolSize, connectTimeoutMs, requestTimeoutMs,
                 securityProtocol, saslConfig, tlsConfig
             );
