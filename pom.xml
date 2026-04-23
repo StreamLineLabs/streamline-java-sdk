@@ -11,7 +11,7 @@
 
     <name>Streamline Java SDK</name>
     <description>Native Java client library for Streamline streaming platform</description>
-    <url>https://github.com/streamline-dev/streamline</url>
+    <url>https://github.com/streamlinelabs/streamline-java-sdk</url>
 
     <licenses>
         <license>
