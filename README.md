@@ -22,14 +22,14 @@ Native Java client library for Streamline with Spring Boot integration.
 <dependency>
     <groupId>dev.streamline</groupId>
     <artifactId>streamline-client</artifactId>
-    <version>0.2.0</version>
+    <version>0.3.0</version>
 </dependency>
 ```
 
 ### Gradle
 
 ```groovy
-implementation 'dev.streamline:streamline-client:0.2.0'
+implementation 'dev.streamline:streamline-client:0.3.0'
 ```
 
 ## Usage
@@ -68,7 +68,7 @@ Add the starter dependency:
 <dependency>
     <groupId>dev.streamline</groupId>
     <artifactId>streamline-spring-boot-starter</artifactId>
-    <version>0.2.0</version>
+    <version>0.3.0</version>
 </dependency>
 ```
 
@@ -134,7 +134,7 @@ Add the OpenTelemetry dependency alongside the SDK:
 <dependency>
     <groupId>dev.streamline</groupId>
     <artifactId>streamline-client</artifactId>
-    <version>0.2.0</version>
+    <version>0.3.0</version>
 </dependency>
 <!-- Optional: enable OpenTelemetry tracing -->
 <dependency>
@@ -186,7 +186,7 @@ distributed tracing across producer and consumer.
 ## Requirements
 
 - Java 17 or later
-- Streamline server 0.2.0 or later
+- Streamline server 0.3.0 or later
 
 ## Building from Source
 
