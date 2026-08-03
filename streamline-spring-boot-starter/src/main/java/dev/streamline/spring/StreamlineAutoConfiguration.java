@@ -6,7 +6,9 @@ import dev.streamline.client.producer.ProducerConfig;
 import dev.streamline.client.consumer.ConsumerConfig;
 import dev.streamline.client.schema.SchemaRegistryClient;
 import io.micrometer.core.instrument.MeterRegistry;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -16,7 +18,8 @@ import org.springframework.context.annotation.Bean;
 /**
  * Auto-configuration for Streamline client.
  */
-@AutoConfiguration
+@AutoConfiguration(
+    afterName = "org.springframework.boot.actuate.autoconfigure.metrics.CompositeMeterRegistryAutoConfiguration")
 @ConditionalOnClass(Streamline.class)
 @EnableConfigurationProperties(StreamlineProperties.class)
 public class StreamlineAutoConfiguration {
@@ -54,8 +57,14 @@ public class StreamlineAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public StreamlineTemplate streamlineTemplate(Streamline streamline, ObjectMapper objectMapper) {
-        return new StreamlineTemplate(streamline, objectMapper);
+    public StreamlineTemplate streamlineTemplate(Streamline streamline,
+                                                 ObjectProvider<ObjectMapper> objectMapper) {
+        // Jackson's ObjectMapper bean is only auto-configured for web applications, so the
+        // starter falls back to the template's own mapper instead of failing to start.
+        ObjectMapper mapper = objectMapper.getIfAvailable();
+        return mapper == null
+            ? new StreamlineTemplate(streamline)
+            : new StreamlineTemplate(streamline, mapper);
     }
 
     @Bean
@@ -81,6 +90,7 @@ public class StreamlineAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     @ConditionalOnClass(name = "io.micrometer.core.instrument.MeterRegistry")
+    @ConditionalOnBean(MeterRegistry.class)
     public StreamlineMetrics streamlineMetrics(MeterRegistry registry) {
         return new StreamlineMetrics(registry);
     }

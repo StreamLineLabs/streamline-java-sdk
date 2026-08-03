@@ -4,14 +4,18 @@ import dev.streamline.client.consumer.Consumer;
 import dev.streamline.client.consumer.ConsumerConfig;
 import dev.streamline.client.producer.Producer;
 import dev.streamline.client.producer.ProducerConfig;
+import dev.streamline.testsupport.UnitTestEndpoints;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Unit tests for {@link Streamline}.
+ *
+ * <p>Only covers builder wiring and lifecycle. Anything that produces to a broker
+ * lives in {@code StreamlineIT}.
+ */
 class StreamlineTest {
 
     private Streamline client;
@@ -31,12 +35,12 @@ class StreamlineTest {
     @Test
     void testBuilderWithDefaults() {
         client = Streamline.builder()
-            .bootstrapServers("localhost:9092")
+            .bootstrapServers(UnitTestEndpoints.BOOTSTRAP_SERVERS)
             .build();
 
         assertNotNull(client);
         assertNotNull(client.getConfig());
-        assertEquals("localhost:9092", client.getConfig().getBootstrapServers());
+        assertEquals(UnitTestEndpoints.BOOTSTRAP_SERVERS, client.getConfig().getBootstrapServers());
         assertEquals(4, client.getConfig().getConnectionPoolSize());
         assertEquals(30000, client.getConfig().getConnectTimeoutMs());
         assertEquals(30000, client.getConfig().getRequestTimeoutMs());
@@ -65,38 +69,9 @@ class StreamlineTest {
     }
 
     @Test
-    void testProduce() {
-        client = Streamline.builder()
-            .bootstrapServers("localhost:9092")
-            .build();
-
-        RecordMetadata metadata = client.produce("test-topic", "key1", "value1");
-
-        assertNotNull(metadata);
-        assertEquals("test-topic", metadata.topic());
-        assertEquals(0, metadata.partition());
-        assertTrue(metadata.offset() > 0);
-        assertTrue(metadata.timestamp() > 0);
-    }
-
-    @Test
-    void testProduceAsync() throws ExecutionException, InterruptedException {
-        client = Streamline.builder()
-            .bootstrapServers("localhost:9092")
-            .build();
-
-        CompletableFuture<RecordMetadata> future = client.produceAsync("test-topic", "key1", "value1");
-
-        assertNotNull(future);
-        RecordMetadata metadata = future.get();
-        assertNotNull(metadata);
-        assertEquals("test-topic", metadata.topic());
-    }
-
-    @Test
     void testCreateProducer() {
         client = Streamline.builder()
-            .bootstrapServers("localhost:9092")
+            .bootstrapServers(UnitTestEndpoints.BOOTSTRAP_SERVERS)
             .build();
 
         try (Producer<String, String> producer = client.createProducer()) {
@@ -107,7 +82,7 @@ class StreamlineTest {
     @Test
     void testCreateProducerWithConfig() {
         client = Streamline.builder()
-            .bootstrapServers("localhost:9092")
+            .bootstrapServers(UnitTestEndpoints.BOOTSTRAP_SERVERS)
             .build();
 
         ProducerConfig config = ProducerConfig.builder()
@@ -123,7 +98,7 @@ class StreamlineTest {
     @Test
     void testConsumerCreation() {
         client = Streamline.builder()
-            .bootstrapServers("localhost:9092")
+            .bootstrapServers(UnitTestEndpoints.BOOTSTRAP_SERVERS)
             .build();
 
         try (Consumer<String, String> consumer = client.consumer("test-topic", "test-group")) {
@@ -134,7 +109,7 @@ class StreamlineTest {
     @Test
     void testConsumerCreationWithConfig() {
         client = Streamline.builder()
-            .bootstrapServers("localhost:9092")
+            .bootstrapServers(UnitTestEndpoints.BOOTSTRAP_SERVERS)
             .build();
 
         ConsumerConfig config = ConsumerConfig.builder()
@@ -151,7 +126,7 @@ class StreamlineTest {
     @Test
     void testIsHealthy() {
         client = Streamline.builder()
-            .bootstrapServers("localhost:9092")
+            .bootstrapServers(UnitTestEndpoints.BOOTSTRAP_SERVERS)
             .build();
 
         assertTrue(client.isHealthy());
@@ -160,7 +135,7 @@ class StreamlineTest {
     @Test
     void testIsNotHealthyAfterClose() {
         client = Streamline.builder()
-            .bootstrapServers("localhost:9092")
+            .bootstrapServers(UnitTestEndpoints.BOOTSTRAP_SERVERS)
             .build();
 
         client.close();
@@ -170,7 +145,7 @@ class StreamlineTest {
     @Test
     void testCloseIdempotent() {
         client = Streamline.builder()
-            .bootstrapServers("localhost:9092")
+            .bootstrapServers(UnitTestEndpoints.BOOTSTRAP_SERVERS)
             .build();
 
         client.close();
@@ -181,7 +156,7 @@ class StreamlineTest {
     @Test
     void testOperationsAfterClose() {
         client = Streamline.builder()
-            .bootstrapServers("localhost:9092")
+            .bootstrapServers(UnitTestEndpoints.BOOTSTRAP_SERVERS)
             .build();
 
         client.close();

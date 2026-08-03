@@ -68,6 +68,7 @@ public class AdminClient implements Closeable {
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private final String httpUrl;
     private final HttpClient httpClient;
+    private final Duration httpRequestTimeout;
 
     public AdminClient(ConnectionPool connectionPool, StreamlineConfig config) {
         this.connectionPool = Objects.requireNonNull(connectionPool, "connectionPool must not be null");
@@ -80,8 +81,9 @@ public class AdminClient implements Closeable {
 
         this.kafkaAdmin = Admin.create(props);
         this.httpUrl = config.getHttpEndpoint();
+        this.httpRequestTimeout = Duration.ofMillis(config.getRequestTimeoutMs());
         this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(10))
+                .connectTimeout(Duration.ofMillis(config.getConnectTimeoutMs()))
                 .build();
         log.debug("AdminClient created for bootstrap servers: {}", config.getBootstrapServers());
     }
@@ -326,6 +328,7 @@ public class AdminClient implements Closeable {
             byte[] json = MAPPER.writeValueAsBytes(body);
             HttpRequest req = HttpRequest.newBuilder(URI.create(httpUrl + "/api/v1/branches"))
                     .header("Content-Type", "application/json")
+                    .timeout(httpRequestTimeout)
                     .POST(HttpRequest.BodyPublishers.ofByteArray(json))
                     .build();
             HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
@@ -363,6 +366,7 @@ public class AdminClient implements Closeable {
                 path += "?topic=" + java.net.URLEncoder.encode(topic, StandardCharsets.UTF_8);
             }
             HttpRequest req = HttpRequest.newBuilder(URI.create(httpUrl + path))
+                    .timeout(httpRequestTimeout)
                     .GET()
                     .build();
             HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
@@ -404,6 +408,7 @@ public class AdminClient implements Closeable {
         try {
             String path = "/api/v1/branches/" + java.net.URLEncoder.encode(branchId, StandardCharsets.UTF_8);
             HttpRequest req = HttpRequest.newBuilder(URI.create(httpUrl + path))
+                    .timeout(httpRequestTimeout)
                     .DELETE()
                     .build();
             HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());

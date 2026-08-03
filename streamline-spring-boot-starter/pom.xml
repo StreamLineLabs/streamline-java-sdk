@@ -7,12 +7,17 @@
     <parent>
         <groupId>dev.streamline</groupId>
         <artifactId>streamline-java-parent</artifactId>
-        <version>0.2.0</version>
+        <version>0.3.0</version>
     </parent>
 
     <artifactId>streamline-spring-boot-starter</artifactId>
     <name>Streamline Spring Boot Starter</name>
     <description>Spring Boot auto-configuration for Streamline client</description>
+
+    <properties>
+        <!-- Every module sits one level below the shared SpotBugs filter. -->
+        <spotbugs.excludeFilterFile>${project.basedir}/../spotbugs-exclude.xml</spotbugs.excludeFilterFile>
+    </properties>
 
     <dependencies>
         <!-- Streamline client -->

@@ -4,6 +4,7 @@ import dev.streamline.client.ConnectionPool;
 import dev.streamline.client.StreamlineConfig;
 import dev.streamline.client.consumer.ConsumerConfig;
 import dev.streamline.client.producer.ProducerConfig;
+import dev.streamline.testsupport.UnitTestEndpoints;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.CreateTopicsResult;
 import org.apache.kafka.clients.admin.DeleteConsumerGroupsResult;
@@ -23,6 +24,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -38,20 +40,23 @@ class AdminClientTest {
     private ConnectionPool connectionPool;
     private StreamlineConfig config;
     private Admin mockKafkaAdmin;
+    private Admin realKafkaAdmin;
     private AdminClient adminClient;
 
     @BeforeEach
     void setUp() throws Exception {
         config = new StreamlineConfig(
-                "localhost:9092",
+                UnitTestEndpoints.BOOTSTRAP_SERVERS,
                 ProducerConfig.defaults(),
                 ConsumerConfig.defaults(),
                 4, 30000, 30000
         );
         connectionPool = new ConnectionPool(config);
 
-        // Create AdminClient, then replace internal kafkaAdmin with a mock
+        // Create AdminClient, then replace internal kafkaAdmin with a mock. The real
+        // client the constructor built is kept so it can be shut down afterwards.
         adminClient = new AdminClient(connectionPool, config);
+        realKafkaAdmin = (Admin) getField(adminClient, "kafkaAdmin");
         mockKafkaAdmin = mock(Admin.class);
         setField(adminClient, "kafkaAdmin", mockKafkaAdmin);
     }
@@ -64,6 +69,9 @@ class AdminClientTest {
                 setField(adminClient, "closed", true);
             } catch (Exception ignored) {
             }
+        }
+        if (realKafkaAdmin != null) {
+            realKafkaAdmin.close(Duration.ZERO);
         }
         connectionPool.close();
     }
@@ -218,6 +226,12 @@ class AdminClientTest {
     void testConstructorWithNullConfigThrows() {
         assertThrows(NullPointerException.class,
                 () -> new AdminClient(connectionPool, null));
+    }
+
+    private static Object getField(Object target, String fieldName) throws Exception {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return field.get(target);
     }
 
     private static void setField(Object target, String fieldName, Object value) throws Exception {

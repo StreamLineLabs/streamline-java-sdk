@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SpotBugs exclusions.
+
+  SpotBugs 4.9 added detectors that report design opinions rather than defects for this
+  codebase. They are excluded here — with the reason recorded — so that `mvn verify`
+  keeps failing on real findings instead of being disabled wholesale.
+-->
+<FindBugsFilter xmlns="https://github.com/spotbugs/filter/3.0.0"
+                xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                xsi:schemaLocation="https://github.com/spotbugs/filter/3.0.0 https://raw.githubusercontent.com/spotbugs/spotbugs/master/spotbugs/etc/findbugsfilter.xsd">
+
+    <!--
+      Records that carry a List/Map/byte[] component. Adding defensive copies would change
+      the semantics of published record constructors and accessors, so immutability of the
+      wire-level DTOs is handled by convention (callers pass List.of/Map.of) instead.
+    -->
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP"/>
+    </Match>
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!--
+      Finalizer-attack detector: it fires on every constructor that validates its arguments.
+      No class in this SDK overrides finalize(), so a partially constructed object is
+      unreachable and the attack does not apply.
+    -->
+    <Match>
+        <Bug pattern="CT_CONSTRUCTOR_THROW"/>
+    </Match>
+
+    <!--
+      JSON parsing helpers deliberately funnel every parser failure into StreamlineException
+      so that a malformed broker response never escapes as an unchecked Jackson error.
+    -->
+    <Match>
+        <Bug pattern="REC_CATCH_EXCEPTION"/>
+    </Match>
+</FindBugsFilter>

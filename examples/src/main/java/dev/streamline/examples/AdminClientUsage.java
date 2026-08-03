@@ -1,4 +1,4 @@
-package com.streamline.examples;
+package dev.streamline.examples;
 
 import dev.streamline.client.Streamline;
 import dev.streamline.client.admin.AdminClient;
@@ -14,46 +14,37 @@ import dev.streamline.client.admin.AdminClient;
  * streamline --playground
  *
  * # Run this example
- * mvn compile exec:java -pl examples -Dexec.mainClass="com.streamline.examples.AdminClientUsage"
+ * mvn compile exec:java -pl examples -Dexec.mainClass="dev.streamline.examples.AdminClientUsage"
  * }</pre>
  */
 public class AdminClientUsage {
 
     public static void main(String[] args) throws Exception {
-        String servers = System.getenv().getOrDefault("STREAMLINE_BOOTSTRAP_SERVERS", "localhost:9092");
+        try (Streamline client = Streamline.builder()
+                .bootstrapServers(ExampleEnv.bootstrapServers())
+                .httpEndpoint(ExampleEnv.httpUrl())
+                .build();
+             AdminClient admin = client.admin()) {
 
-        Streamline client = Streamline.builder()
-            .bootstrapServers(servers)
-            .clientId("java-admin-example")
-            .build();
-
-        try (AdminClient admin = client.admin()) {
             // --- Topic Management ---
             System.out.println("=== Topic Management ===");
             admin.createTopic("events", 3, (short) 1);
             System.out.println("Created topic 'events' with 3 partitions");
 
-            var topics = admin.listTopics();
-            System.out.println("Topics: " + topics);
-
-            var description = admin.describeTopic("events");
-            System.out.println("Topic details: " + description);
+            System.out.println("Topics: " + admin.listTopics());
+            System.out.println("Topic details: " + admin.describeTopic("events"));
 
             // --- Consumer Groups ---
             System.out.println("\n=== Consumer Groups ===");
-            var groups = admin.listConsumerGroups();
-            System.out.println("Consumer groups: " + groups);
+            System.out.println("Consumer groups: " + admin.listConsumerGroups());
 
             // --- Cluster Info ---
             System.out.println("\n=== Cluster Info ===");
-            var nodes = admin.describeCluster();
-            System.out.println("Cluster nodes: " + nodes);
+            System.out.println("Cluster nodes: " + admin.describeCluster());
 
             // --- Cleanup ---
             admin.deleteTopic("events");
             System.out.println("\nCleaned up topic 'events'");
-        } finally {
-            client.close();
         }
     }
 }

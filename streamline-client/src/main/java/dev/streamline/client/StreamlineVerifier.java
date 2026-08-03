@@ -82,18 +82,25 @@ public final class StreamlineVerifier {
         long timestampMs;
         String keyId;
         String signatureB64;
-        try {
-            payloadSha256 = attestation.get("payload_sha256").asText();
-            topic = attestation.get("topic").asText();
-            partition = attestation.get("partition").asInt();
-            offset = attestation.get("offset").asLong();
-            schemaId = attestation.get("schema_id").asInt();
-            timestampMs = attestation.get("timestamp_ms").asLong();
-            keyId = attestation.get("key_id").asText();
-            signatureB64 = attestation.get("signature").asText();
-        } catch (NullPointerException e) {
+        // A missing field yields a null node, so absence is checked instead of caught.
+        if (!attestation.hasNonNull("payload_sha256")
+                || !attestation.hasNonNull("topic")
+                || !attestation.hasNonNull("partition")
+                || !attestation.hasNonNull("offset")
+                || !attestation.hasNonNull("schema_id")
+                || !attestation.hasNonNull("timestamp_ms")
+                || !attestation.hasNonNull("key_id")
+                || !attestation.hasNonNull("signature")) {
             return VerificationResult.failed();
         }
+        payloadSha256 = attestation.get("payload_sha256").asText();
+        topic = attestation.get("topic").asText();
+        partition = attestation.get("partition").asInt();
+        offset = attestation.get("offset").asLong();
+        schemaId = attestation.get("schema_id").asInt();
+        timestampMs = attestation.get("timestamp_ms").asLong();
+        keyId = attestation.get("key_id").asText();
+        signatureB64 = attestation.get("signature").asText();
 
         String canonical = topic + "|" + partition + "|" + offset
                 + "|" + payloadSha256

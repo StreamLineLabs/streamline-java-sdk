@@ -7,7 +7,9 @@ import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
+import dev.streamline.testsupport.IntegrationEnvironment;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 import java.io.*;
 import java.net.HttpURLConnection;
@@ -24,24 +26,33 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * SDK Conformance Test Suite — 46 tests per SDK_CONFORMANCE_SPEC.md
  *
- * Requires: docker compose -f docker-compose.conformance.yml up -d
- * Run with: mvn test -Dgroups=conformance
+ * <p>Requires a live Streamline server:
+ * <pre>{@code
+ * docker compose -f docker-compose.test.yml up -d
+ * STREAMLINE_INTEGRATION=1 mvn verify -Pintegration
+ * }</pre>
+ *
+ * <p>Endpoints are configurable through {@link IntegrationEnvironment}. When
+ * {@code STREAMLINE_INTEGRATION=1} is set but the server is unreachable the suite
+ * fails fast instead of silently passing.
  */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+@Tag("integration")
 @Tag("conformance")
-public class ConformanceTest {
+@EnabledIfEnvironmentVariable(named = IntegrationEnvironment.ENABLED_VAR, matches = "1",
+        disabledReason = "set STREAMLINE_INTEGRATION=1 and run with -Pintegration")
+public class ConformanceIT {
 
     private static AdminClient adminClient;
 
     // ========== Configuration helpers ==========
 
     private static String getBootstrap() {
-        return System.getenv().getOrDefault("STREAMLINE_BOOTSTRAP", "localhost:9092");
+        return IntegrationEnvironment.bootstrapServers();
     }
 
-    @SuppressWarnings("unused")
-    private static String getHttpUrl() {
-        return System.getenv().getOrDefault("STREAMLINE_HTTP", "http://localhost:9094");
+    private static String getRegistryUrl() {
+        return IntegrationEnvironment.schemaRegistryUrl();
     }
 
     private static String uniqueTopic(String prefix) {
@@ -109,6 +120,9 @@ public class ConformanceTest {
 
     @BeforeAll
     static void setUpAdmin() {
+        IntegrationEnvironment.requireAvailable();
+        IntegrationEnvironment.requireSchemaRegistry();
+
         Properties props = new Properties();
         props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, getBootstrap());
         props.put(AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG, 10_000);
@@ -872,7 +886,7 @@ public class ConformanceTest {
                 + "\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"int\\\"}]}";
         String body = "{\"schema\":\"" + schemaJson + "\",\"schemaType\":\"AVRO\"}";
 
-        URL url = new URL(getHttpUrl() + "/subjects/" + subject + "/versions");
+        URL url = new URL(getRegistryUrl() + "/subjects/" + subject + "/versions");
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         try {
             conn.setRequestMethod("POST");
@@ -893,7 +907,7 @@ public class ConformanceTest {
                 assertTrue(response.contains("id"), "Response should contain schema ID");
             }
         } catch (java.net.ConnectException e) {
-            Assumptions.assumeTrue(false, "Schema registry not available: " + e.getMessage());
+            fail("Schema registry at " + getRegistryUrl() + " is not reachable: " + e.getMessage());
         } finally {
             conn.disconnect();
         }
@@ -908,7 +922,7 @@ public class ConformanceTest {
 
         try {
             // Register a schema first
-            URL regUrl = new URL(getHttpUrl() + "/subjects/" + subject + "/versions");
+            URL regUrl = new URL(getRegistryUrl() + "/subjects/" + subject + "/versions");
             HttpURLConnection regConn = (HttpURLConnection) regUrl.openConnection();
             regConn.setRequestMethod("POST");
             regConn.setRequestProperty("Content-Type", "application/vnd.schemaregistry.v1+json");
@@ -929,7 +943,7 @@ public class ConformanceTest {
             int schemaId = Integer.parseInt(idStr);
 
             // Fetch by ID
-            URL getUrl = new URL(getHttpUrl() + "/schemas/ids/" + schemaId);
+            URL getUrl = new URL(getRegistryUrl() + "/schemas/ids/" + schemaId);
             HttpURLConnection getConn = (HttpURLConnection) getUrl.openConnection();
             getConn.setRequestMethod("GET");
             getConn.setConnectTimeout(5000);
@@ -941,7 +955,7 @@ public class ConformanceTest {
             assertTrue(getResponse.contains("schema"), "Response should contain schema definition");
             getConn.disconnect();
         } catch (java.net.ConnectException e) {
-            Assumptions.assumeTrue(false, "Schema registry not available: " + e.getMessage());
+            fail("Schema registry at " + getRegistryUrl() + " is not reachable: " + e.getMessage());
         }
     }
 
@@ -954,7 +968,7 @@ public class ConformanceTest {
 
         try {
             // Register schema
-            URL regUrl = new URL(getHttpUrl() + "/subjects/" + subject + "/versions");
+            URL regUrl = new URL(getRegistryUrl() + "/subjects/" + subject + "/versions");
             HttpURLConnection regConn = (HttpURLConnection) regUrl.openConnection();
             regConn.setRequestMethod("POST");
             regConn.setRequestProperty("Content-Type", "application/vnd.schemaregistry.v1+json");
@@ -969,7 +983,7 @@ public class ConformanceTest {
             regConn.disconnect();
 
             // Get versions
-            URL versionsUrl = new URL(getHttpUrl() + "/subjects/" + subject + "/versions");
+            URL versionsUrl = new URL(getRegistryUrl() + "/subjects/" + subject + "/versions");
             HttpURLConnection versConn = (HttpURLConnection) versionsUrl.openConnection();
             versConn.setRequestMethod("GET");
             versConn.setConnectTimeout(5000);
@@ -981,7 +995,7 @@ public class ConformanceTest {
             assertTrue(response.contains("1"), "Versions should include version 1");
             versConn.disconnect();
         } catch (java.net.ConnectException e) {
-            Assumptions.assumeTrue(false, "Schema registry not available: " + e.getMessage());
+            fail("Schema registry at " + getRegistryUrl() + " is not reachable: " + e.getMessage());
         }
     }
 
@@ -994,7 +1008,7 @@ public class ConformanceTest {
 
         try {
             // Register initial schema
-            URL regUrl = new URL(getHttpUrl() + "/subjects/" + subject + "/versions");
+            URL regUrl = new URL(getRegistryUrl() + "/subjects/" + subject + "/versions");
             HttpURLConnection regConn = (HttpURLConnection) regUrl.openConnection();
             regConn.setRequestMethod("POST");
             regConn.setRequestProperty("Content-Type", "application/vnd.schemaregistry.v1+json");
@@ -1015,7 +1029,7 @@ public class ConformanceTest {
                     + "\\\"default\\\":null}]}";
             String compatBody = "{\"schema\":\"" + compatSchema + "\",\"schemaType\":\"AVRO\"}";
 
-            URL compatUrl = new URL(getHttpUrl() + "/compatibility/subjects/" + subject + "/versions/latest");
+            URL compatUrl = new URL(getRegistryUrl() + "/compatibility/subjects/" + subject + "/versions/latest");
             HttpURLConnection compatConn = (HttpURLConnection) compatUrl.openConnection();
             compatConn.setRequestMethod("POST");
             compatConn.setRequestProperty("Content-Type", "application/vnd.schemaregistry.v1+json");
@@ -1036,7 +1050,7 @@ public class ConformanceTest {
             }
             compatConn.disconnect();
         } catch (java.net.ConnectException e) {
-            Assumptions.assumeTrue(false, "Schema registry not available: " + e.getMessage());
+            fail("Schema registry at " + getRegistryUrl() + " is not reachable: " + e.getMessage());
         }
     }
 
@@ -1051,7 +1065,7 @@ public class ConformanceTest {
         String body = "{\"schema\":\"" + avroSchema + "\",\"schemaType\":\"AVRO\"}";
 
         try {
-            URL url = new URL(getHttpUrl() + "/subjects/" + subject + "/versions");
+            URL url = new URL(getRegistryUrl() + "/subjects/" + subject + "/versions");
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/vnd.schemaregistry.v1+json");
@@ -1071,7 +1085,7 @@ public class ConformanceTest {
             }
             conn.disconnect();
         } catch (java.net.ConnectException e) {
-            Assumptions.assumeTrue(false, "Schema registry not available: " + e.getMessage());
+            fail("Schema registry at " + getRegistryUrl() + " is not reachable: " + e.getMessage());
         }
     }
 
@@ -1084,7 +1098,7 @@ public class ConformanceTest {
         String body = "{\"schema\":\"" + jsonSchema + "\",\"schemaType\":\"JSON\"}";
 
         try {
-            URL url = new URL(getHttpUrl() + "/subjects/" + subject + "/versions");
+            URL url = new URL(getRegistryUrl() + "/subjects/" + subject + "/versions");
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/vnd.schemaregistry.v1+json");
@@ -1104,7 +1118,7 @@ public class ConformanceTest {
             }
             conn.disconnect();
         } catch (java.net.ConnectException e) {
-            Assumptions.assumeTrue(false, "Schema registry not available: " + e.getMessage());
+            fail("Schema registry at " + getRegistryUrl() + " is not reachable: " + e.getMessage());
         }
     }
 

@@ -6,6 +6,7 @@ on:
 
 jobs:
   build:
+    name: Unit build (no server required)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,8 +18,12 @@ jobs:
           java-version: '17'
           cache: maven
 
-      - name: Build and test
-        run: mvn verify
+      # `verify` compiles, runs the unit tests, packages and runs SpotBugs.
+      # Integration tests (*IT) are skipped unless -Pintegration is requested,
+      # so this job never needs a broker.
+      - name: Build, unit test and static analysis
+        run: mvn --batch-mode verify
 
-      - name: Static analysis
-        run: mvn spotbugs:check -DfailOnError=true
+      - name: Build testcontainers module
+        run: mvn --batch-mode verify
+        working-directory: testcontainers

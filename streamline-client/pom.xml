@@ -7,12 +7,17 @@
     <parent>
         <groupId>dev.streamline</groupId>
         <artifactId>streamline-java-parent</artifactId>
-        <version>0.2.0</version>
+        <version>0.3.0</version>
     </parent>
 
     <artifactId>streamline-client</artifactId>
     <name>Streamline Client</name>
     <description>Core Java client library for Streamline</description>
+
+    <properties>
+        <!-- Every module sits one level below the shared SpotBugs filter. -->
+        <spotbugs.excludeFilterFile>${project.basedir}/../spotbugs-exclude.xml</spotbugs.excludeFilterFile>
+    </properties>
 
     <dependencies>
         <!-- Logging -->

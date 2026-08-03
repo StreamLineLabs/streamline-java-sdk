@@ -8,6 +8,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Test layout** — unit tests (`*Test`, Surefire) are now hermetic and never contact a
+  broker or HTTP endpoint, so `mvn verify` is self-contained and bounded. Tests that need
+  a live server moved to Failsafe integration tests (`*IT`, tagged `integration`):
+  `ProducerIT`, `ConsumerIT`, `StreamlineIT`, `ConformanceIT` (formerly `ConformanceTest`)
+  and `StreamlineContainerIT` (formerly `StreamlineContainerTest`).
+- Integration tests are opt-in: they run only under `-Pintegration` (auto-activated by
+  `STREAMLINE_INTEGRATION=1`) and require `STREAMLINE_INTEGRATION=1`. When enabled, an
+  unreachable endpoint now fails fast instead of being silently skipped. Endpoints are
+  configurable with `STREAMLINE_BOOTSTRAP_SERVERS`, `STREAMLINE_HTTP_URL` and
+  `STREAMLINE_SCHEMA_REGISTRY_URL`.
+- `docker-compose.test.yml` no longer pins an unpublished image tag; it uses
+  `STREAMLINE_IMAGE` (default `ghcr.io/streamlinelabs/streamline:latest`) and the
+  `/health/live` probe.
+- Examples moved from the non-existent `com.streamline.*` API to the real
+  `dev.streamline.*` API and are now compiled by every build as the `examples` module
+  (never installed or deployed).
+- Compiler now uses `release` instead of `source`/`target`, so building on a newer JDK
+  cannot link against post-Java-17 APIs.
+
+### Fixed
+- `streamline-client` and `streamline-spring-boot-starter` declared parent version
+  `0.2.0` while the parent POM was `0.3.0`, so the build silently resolved a stale
+  installed parent (and failed outright on a clean machine).
+- Spring Boot starter no longer fails to start in non-web applications: the
+  `StreamlineTemplate` bean falls back to its own `ObjectMapper` when the application
+  does not define one, and `StreamlineMetrics` is only created when a `MeterRegistry`
+  bean exists.
+- `AdminClient` branch operations and `QueryClient.explain` now carry per-request
+  timeouts; `AdminClient` honours the configured connect/request timeouts.
+- `StreamlineVerifier` checks for missing attestation fields instead of catching
+  `NullPointerException`, and `CircuitBreaker` switches have explicit default branches.
+- Static analysis runs again on modern JDKs (SpotBugs 4.9.x); documented exclusions live
+  in `spotbugs-exclude.xml`.
+- Mockito and Byte Buddy are managed explicitly so mocking works on current JDKs; the
+  Spring Boot BOM previously pinned an unusable Byte Buddy version.
+
 
 ## [0.3.0] - 2026-04-20
 

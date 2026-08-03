@@ -11,9 +11,12 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
 
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -27,13 +30,43 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Integration tests for StreamlineContainer.
+ *
+ * <p>These need a working Docker daemon and a pullable Streamline image, so they only run
+ * when explicitly enabled:
+ * <pre>{@code
+ * STREAMLINE_INTEGRATION=1 mvn verify -Pintegration
+ * }</pre>
+ *
+ * <p>{@code STREAMLINE_IMAGE} overrides the image (for example a locally built one); it
+ * defaults to {@code ghcr.io/streamlinelabs/streamline:latest}.
+ *
+ * <p>The gate is an {@code ExecutionCondition} rather than an assumption so that the
+ * Testcontainers extension never starts — and never pulls — an image when disabled.
  */
+@Tag("integration")
+@EnabledIfEnvironmentVariable(named = StreamlineContainerIT.ENABLED_VAR, matches = "1",
+        disabledReason = "set STREAMLINE_INTEGRATION=1 and run with -Pintegration")
 @Testcontainers
-class StreamlineContainerTest {
+class StreamlineContainerIT {
+
+    /** Opt-in switch; without it the suite is skipped rather than pulling images. */
+    static final String ENABLED_VAR = "STREAMLINE_INTEGRATION";
+
+    /** Overrides the image under test, e.g. {@code ghcr.io/streamlinelabs/streamline:0.3.0}. */
+    static final String IMAGE_VAR = "STREAMLINE_IMAGE";
 
     @Container
-    static StreamlineContainer streamline = new StreamlineContainer()
+    static StreamlineContainer streamline = new StreamlineContainer(image())
             .withDebugLogging();
+
+    static DockerImageName image() {
+        String override = System.getenv(IMAGE_VAR);
+        if (override == null || override.trim().isEmpty()) {
+            return DockerImageName.parse(StreamlineContainer.DEFAULT_IMAGE)
+                    .withTag(StreamlineContainer.DEFAULT_TAG);
+        }
+        return DockerImageName.parse(override.trim());
+    }
 
     @Test
     void shouldStartAndProvideBootstrapServers() {

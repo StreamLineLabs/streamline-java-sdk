@@ -8,15 +8,25 @@ import java.time.Duration;
 
 /**
  * StreamQL query client for executing SQL queries on streaming data.
+ *
+ * <p>All requests are bounded: the connection attempt is capped by
+ * {@link #CONNECT_TIMEOUT} and every request carries its own read timeout.
  */
 public class QueryClient {
+
+    /** Upper bound for establishing the TCP/TLS connection. */
+    public static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
+
+    /** Headroom added to the server-side query timeout for the client-side bound. */
+    private static final Duration RESPONSE_HEADROOM = Duration.ofSeconds(5);
+
     private final HttpClient httpClient;
     private final String baseUrl;
 
     public QueryClient(String baseUrl) {
         this.baseUrl = baseUrl.replaceAll("/$", "");
         this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(10))
+                .connectTimeout(CONNECT_TIMEOUT)
                 .build();
     }
 
@@ -39,7 +49,7 @@ public class QueryClient {
                 .uri(URI.create(baseUrl + "/api/v1/query"))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(body))
-                .timeout(Duration.ofMillis(timeoutMs + 5000))
+                .timeout(Duration.ofMillis(timeoutMs).plus(RESPONSE_HEADROOM))
                 .build();
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         if (response.statusCode() != 200) {
@@ -57,6 +67,7 @@ public class QueryClient {
                 .uri(URI.create(baseUrl + "/api/v1/query/explain"))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(body))
+                .timeout(CONNECT_TIMEOUT.plus(RESPONSE_HEADROOM))
                 .build();
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         if (response.statusCode() != 200) {

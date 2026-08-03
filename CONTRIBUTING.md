@@ -37,33 +37,68 @@ This is a multi-module Maven project:
 
 - `streamline-client/` — Core Java client library
 - `streamline-spring-boot-starter/` — Spring Boot auto-configuration starter
+- `examples/` — Runnable examples, compiled by every build but never published
+- `testcontainers/` — Standalone Testcontainers module (own coordinates, built separately)
 
 ## Running Tests
 
+Tests are split into two phases:
+
+| Phase | Naming | Runner | Needs a server |
+|---|---|---|---|
+| Unit | `*Test` | Surefire | No |
+| Integration | `*IT` (tagged `integration`) | Failsafe | Yes |
+
+Unit tests are hermetic: they must never depend on a service running on the machine.
+Where a real client object is needed, point it at
+`UnitTestEndpoints.BOOTSTRAP_SERVERS` (TEST-NET-1, guaranteed unroutable) so the
+result cannot change depending on whether a Streamline server happens to be running
+locally. Binding an in-process stub to an ephemeral loopback port is fine — that is
+still self-contained.
+
 ```bash
-# Unit tests
+# Unit tests only — no server required
 mvn test
 
-# Full verification (unit + integration tests)
+# Compile, unit test, package and run SpotBugs — still no server required
 mvn verify
 
 # Run a specific test class
-mvn test -pl streamline-client -Dtest=StreamlineProducerTest
+mvn test -pl streamline-client -Dtest=ProducerTest
 ```
 
 ### Integration Tests
 
-Integration tests require a running Streamline server:
+Integration tests are opt-in and require a running Streamline server:
 
 ```bash
-# Start the server
+# Start the server (STREAMLINE_IMAGE overrides the image)
 docker compose -f docker-compose.test.yml up -d
 
-# Run integration tests
-mvn verify -Pintegration
+# Run everything, including *IT
+STREAMLINE_INTEGRATION=1 mvn verify -Pintegration
 
 # Stop the server
-docker compose -f docker-compose.test.yml down
+docker compose -f docker-compose.test.yml down -v
+```
+
+Selection rules:
+
+- Without `-Pintegration` (and without `STREAMLINE_INTEGRATION=1`), Failsafe is
+  skipped entirely, so `mvn verify` is self-contained and bounded.
+- With the profile but without `STREAMLINE_INTEGRATION=1`, the `*IT` suites are
+  reported as skipped.
+- With `STREAMLINE_INTEGRATION=1`, an unreachable endpoint fails the build within
+  seconds — integration tests never pass silently because a server was missing.
+
+Endpoints are configurable through `STREAMLINE_BOOTSTRAP_SERVERS`,
+`STREAMLINE_HTTP_URL` and `STREAMLINE_SCHEMA_REGISTRY_URL`; see
+`dev.streamline.testsupport.IntegrationEnvironment`.
+
+The `testcontainers/` module is built separately and follows the same rules:
+
+```bash
+cd testcontainers && STREAMLINE_INTEGRATION=1 mvn verify -Pintegration
 ```
 
 ## Code Style
@@ -78,7 +113,7 @@ docker compose -f docker-compose.test.yml down
 - Write clear commit messages
 - Add tests for new functionality
 - Update documentation if needed
-- Ensure `mvn verify` passes before submitting
+- Ensure `mvn verify` passes before submitting (it must not need a server)
 
 ## Reporting Issues
 
