@@ -1,5 +1,11 @@
 name: Integration Tests
 
+# Live conformance against a real Streamline server. The image under test is
+# never allowed to be absent or a mutable tag: `resolve-image` hard-blocks
+# (scripts/require-image-digest.sh) unless it resolves to an explicit,
+# immutable `repository@sha256:<digest>` reference, and both test jobs guard
+# against a false-green run in which every *IT test was silently skipped
+# (scripts/verify-executed-tests.sh).
 on:
   push:
     branches: [main]
@@ -10,22 +16,53 @@ on:
   workflow_dispatch:
     inputs:
       image:
-        description: Streamline image to test against
+        description: >-
+          Immutable Streamline image to test against, pinned by digest, e.g.
+          ghcr.io/streamlinelabs/streamline@sha256:<64 lowercase hex chars>.
+          Falls back to the STREAMLINE_CONFORMANCE_IMAGE_DIGEST repository
+          variable when omitted. Mutable tags such as ":latest" (and an
+          absent image) are hard-blocked, never silently defaulted.
         required: false
-        default: ghcr.io/streamlinelabs/streamline:latest
-
-env:
-  STREAMLINE_IMAGE: ${{ inputs.image || 'ghcr.io/streamlinelabs/streamline:latest' }}
+  workflow_call:
+    inputs:
+      image:
+        description: Same contract as the workflow_dispatch "image" input above.
+        required: false
+        type: string
+    outputs:
+      image:
+        description: The validated, digest-pinned image that live conformance ran against.
+        value: ${{ jobs.resolve-image.outputs.image }}
 
 jobs:
+  resolve-image:
+    name: Resolve and hard-block on a non-digest-pinned image
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.resolve.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve and validate the conformance image digest
+        id: resolve
+        env:
+          # No hardcoded fallback: an explicit input/variable is required, or
+          # this step hard-blocks. Never defaults to ":latest" or any other
+          # mutable/nonexistent image.
+          IMAGE: ${{ inputs.image || vars.STREAMLINE_CONFORMANCE_IMAGE_DIGEST }}
+        run: |
+          scripts/require-image-digest.sh "$IMAGE"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+
   integration:
     name: Integration tests (live server)
+    needs: resolve-image
     runs-on: ubuntu-latest
     services:
       streamline:
-        # GitHub does not expand `env` in service definitions, so the image is
-        # taken straight from the workflow input (defaulted to :latest).
-        image: ${{ inputs.image || 'ghcr.io/streamlinelabs/streamline:latest' }}
+        # GitHub does not expand `env` in service definitions, so the
+        # already-validated digest is taken straight from the preceding job's
+        # output.
+        image: ${{ needs.resolve-image.outputs.image }}
         ports:
           - 9092:9092
           - 9094:9094
@@ -61,8 +98,12 @@ jobs:
           STREAMLINE_BOOTSTRAP_SERVERS: localhost:9092
           STREAMLINE_HTTP_URL: http://localhost:9094
 
+      - name: Guard against zero executed or all-skipped conformance tests
+        run: scripts/verify-executed-tests.sh streamline-client/target/failsafe-reports
+
   testcontainers:
     name: Testcontainers module
+    needs: resolve-image
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -77,3 +118,7 @@ jobs:
         working-directory: testcontainers
         env:
           STREAMLINE_INTEGRATION: '1'
+          STREAMLINE_IMAGE: ${{ needs.resolve-image.outputs.image }}
+
+      - name: Guard against zero executed or all-skipped container tests
+        run: scripts/verify-executed-tests.sh testcontainers/target/failsafe-reports

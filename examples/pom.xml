@@ -19,7 +19,6 @@
              but never installed, deployed, signed or statically analysed. -->
         <maven.install.skip>true</maven.install.skip>
         <maven.deploy.skip>true</maven.deploy.skip>
-        <skipNexusStagingDeployMojo>true</skipNexusStagingDeployMojo>
         <skipLocalStaging>true</skipLocalStaging>
         <gpg.skip>true</gpg.skip>
         <jacoco.skip>true</jacoco.skip>

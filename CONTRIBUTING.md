@@ -118,6 +118,55 @@ cd testcontainers && STREAMLINE_INTEGRATION=1 mvn verify -Pintegration
 - Update documentation if needed
 - Ensure `mvn verify` passes before submitting (it must not need a server)
 
+## Release Prerequisites
+
+Releases publish the parent POM, core client, and Spring Boot starter through the
+Sonatype Central Portal. Before a release tag is pushed:
+
+- The `dev.streamline` namespace must already be verified in Central Portal.
+- A Central Portal user token must be stored as the `CENTRAL_USERNAME` and
+  `CENTRAL_PASSWORD` GitHub Actions secrets.
+- An ASCII-armored private GPG key and its passphrase must be stored as
+  `MAVEN_GPG_PRIVATE_KEY` and `MAVEN_GPG_PASSPHRASE`.
+- No token, private key, or passphrase belongs in the repository.
+- The tag must exactly equal `v` plus the Maven project version.
+- The `STREAMLINE_CONFORMANCE_IMAGE_DIGEST` repository variable must hold an
+  explicit, immutable image reference (`ghcr.io/streamlinelabs/streamline@sha256:<64
+  hex chars>`). There is no default; the release workflow hard-blocks rather than
+  falling back to a mutable tag such as `:latest`.
+
+The tag workflow (`.github/workflows/release.yml`) enforces the following order, and
+tagged publication cannot skip ahead:
+
+1. **Live conformance** (`conformance` job) runs the full integration suite
+   (`.github/workflows/integration.yml`) against the exact digest in
+   `STREAMLINE_CONFORMANCE_IMAGE_DIGEST`. `scripts/require-image-digest.sh`
+   hard-blocks the run if that variable is unset or not pinned by digest, and
+   `scripts/verify-executed-tests.sh` hard-blocks it if the Failsafe reports show
+   zero executed (i.e. all-skipped) tests — both failure modes stop the `publish`
+   job from ever starting (`needs: conformance`).
+2. **Build, test, sign, and SBOM generation** run to completion (`mvn verify -P
+   release`) — this step never invokes Maven's `deploy` phase.
+3. **Artifact and SBOM verification** (`scripts/verify-release-artifacts.sh`) confirms
+   every expected jar and the CycloneDX SBOM exist and are non-empty.
+4. **GitHub provenance and SBOM attestations** (`actions/attest`) run only after step 3
+   passes, against the exact jars produced in step 2.
+5. **Maven Central and GitHub publication are gated closed**
+   (`scripts/central-publish-gate.sh`) with no environment-variable bypass. A
+   plain `mvn deploy` re-runs the full lifecycle from a fresh
+   JVM and is not guaranteed to reproduce byte-identical jars (no
+   `project.build.outputTimestamp`/reproducible-build configuration exists yet), so
+   auto-publishing immediately after attestation could release artifacts that do not
+   match what was attested. The gate — and the corresponding
+   `central-publishing-maven-plugin` `autoPublish=false` setting in `pom.xml` — keep
+   Central publication blocked until a deploy mechanism that republishes the exact
+   already-attested files is implemented and deliberately reviewed.
+
+For an equivalent local release, pass the exact tag explicitly to
+`make release`; the target validates the tag, runs the full
+build and artifact/SBOM checks, and then intentionally stops at the same
+fail-closed publication gate. It contains no deploy command.
+
 ## Reporting Issues
 
 - Use the **Bug Report** or **Feature Request** issue templates

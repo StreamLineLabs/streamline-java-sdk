@@ -173,17 +173,6 @@
         </dependencies>
     </dependencyManagement>
 
-    <distributionManagement>
-        <snapshotRepository>
-            <id>ossrh</id>
-            <url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>
-        </snapshotRepository>
-        <repository>
-            <id>ossrh</id>
-            <url>https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/</url>
-        </repository>
-    </distributionManagement>
-
     <build>
         <plugins>
             <plugin>
@@ -347,6 +336,58 @@
             <build>
                 <plugins>
                     <plugin>
+                        <groupId>org.cyclonedx</groupId>
+                        <artifactId>cyclonedx-maven-plugin</artifactId>
+                        <version>2.9.3</version>
+                        <inherited>false</inherited>
+                        <configuration>
+                            <projectType>library</projectType>
+                            <schemaVersion>1.6</schemaVersion>
+                            <includeBomSerialNumber>true</includeBomSerialNumber>
+                            <includeTestScope>false</includeTestScope>
+                            <skipNotDeployed>true</skipNotDeployed>
+                            <excludeArtifactId>streamline-examples</excludeArtifactId>
+                            <outputReactorProjects>false</outputReactorProjects>
+                            <outputFormat>json</outputFormat>
+                            <outputName>sbom.cdx</outputName>
+                            <outputDirectory>${project.build.directory}</outputDirectory>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>generate-release-sbom</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>makeAggregateBom</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <version>3.1.0</version>
+                        <inherited>false</inherited>
+                        <executions>
+                            <execution>
+                                <id>verify-release-sbom</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                                <configuration>
+                                    <target>
+                                        <available
+                                            file="${project.build.directory}/sbom.cdx.json"
+                                            property="release.sbom.exists"/>
+                                        <fail
+                                            unless="release.sbom.exists"
+                                            message="Required release SBOM target/sbom.cdx.json was not generated"/>
+                                    </target>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-source-plugin</artifactId>
                         <version>3.3.0</version>
@@ -387,14 +428,33 @@
                         </executions>
                     </plugin>
                     <plugin>
-                        <groupId>org.sonatype.plugins</groupId>
-                        <artifactId>nexus-staging-maven-plugin</artifactId>
-                        <version>1.6.13</version>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>0.11.0</version>
                         <extensions>true</extensions>
                         <configuration>
-                            <serverId>ossrh</serverId>
-                            <nexusUrl>https://s01.oss.sonatype.org/</nexusUrl>
-                            <autoReleaseAfterClose>true</autoReleaseAfterClose>
+                            <publishingServerId>central</publishingServerId>
+                            <!--
+                              autoPublish is intentionally false: a plain `mvn deploy` must only
+                              stage a Central Portal deployment, never release it publicly.
+                              Nothing in this reactor is reproducible (no
+                              project.build.outputTimestamp is configured), so a second `mvn`
+                              invocation after this build's SBOM/provenance attestations does
+                              not reproduce byte-identical jars. Auto-publishing here would let
+                              CI release artifacts to Central that were never the ones actually
+                              attested. Public release remains blocked
+                              (scripts/central-publish-gate.sh, .github/workflows/release.yml)
+                              until a deploy mechanism that republishes the exact already-built,
+                              already-attested target/*.jar files (for example deploy:deploy-file,
+                              or reproducible builds plus digest comparison) is configured and
+                              deliberately re-enabled.
+                            -->
+                            <autoPublish>false</autoPublish>
+                            <waitUntil>validated</waitUntil>
+                            <failOnBuildFailure>true</failOnBuildFailure>
+                            <excludeArtifacts>
+                                <excludeArtifact>streamline-examples</excludeArtifact>
+                            </excludeArtifacts>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -402,4 +462,3 @@
         </profile>
     </profiles>
 </project>
-

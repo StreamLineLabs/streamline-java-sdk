@@ -1,9 +1,13 @@
 .PHONY: help build test unit-test integration-test verify lint fmt clean package release
 
-MVN ?= $(shell [ -x ./mvnw ] && echo ./mvnw || echo mvn)
+# This repository intentionally uses the system Maven installation (3.9.0+).
+MVN ?= mvn
 COMPOSE ?= docker compose -f docker-compose.test.yml
-# Override to test a specific build, e.g. STREAMLINE_IMAGE=ghcr.io/streamlinelabs/streamline:0.3.0
-export STREAMLINE_IMAGE ?= ghcr.io/streamlinelabs/streamline:latest
+# No default: an immutable, digest-pinned image is required, e.g.
+#   STREAMLINE_IMAGE=ghcr.io/streamlinelabs/streamline@sha256:<64 hex chars> make integration-test
+# ":latest" and other mutable/absent defaults are hard-blocked (see
+# scripts/require-image-digest.sh) rather than silently substituted.
+export STREAMLINE_IMAGE ?=
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -32,10 +36,15 @@ clean: ## Clean build artifacts
 package: ## Build JAR package
 	$(MVN) package -q -DskipTests
 
-release: ## Deploy to Maven Central
-	$(MVN) deploy -P release -DskipTests
+release: ## Verify a validated tag and hard-block until byte-identical Central publication exists
+	@test -n "$(RELEASE_TAG)" || { echo "RELEASE_TAG is required" >&2; exit 1; }
+	scripts/validate-release-tag.sh "$(RELEASE_TAG)"
+	$(MVN) verify -P release
+	scripts/verify-release-artifacts.sh
+	scripts/central-publish-gate.sh
 
-integration-test: ## Run integration tests against a live server (requires Docker)
+integration-test: ## Run integration tests against a live server (requires Docker + an explicit digest-pinned STREAMLINE_IMAGE)
+	scripts/require-image-digest.sh "$(STREAMLINE_IMAGE)"
 	$(COMPOSE) up -d
 	@echo "Waiting for Streamline ($(STREAMLINE_IMAGE))..."
 	@for i in $$(seq 1 30); do \
