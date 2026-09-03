@@ -1,7 +1,7 @@
 # CLAUDE.md — Streamline Java SDK
 
 ## Overview
-Java 17 SDK for [Streamline](https://github.com/streamlinelabs/streamline) with Spring Boot starter. Maven multi-module project. Communicates via the Kafka wire protocol on port 9092.
+Java 17 SDK for [Streamline](https://github.com/streamlinelabs/streamline) with Spring Boot starter. Maven multi-module project requiring system Maven 3.9.0 or newer; no Maven wrapper is included. Communicates via the Kafka wire protocol on port 9092.
 
 ## Build & Test
 ```bash
@@ -37,7 +37,7 @@ streamline-java-sdk/
 │           ├── StreamlineTemplate.java
 │           └── @StreamlineListener annotation
 ├── examples/                        # Runnable examples, compiled but never published
-└── testcontainers/                  # Standalone Testcontainers module (own coordinates)
+└── testcontainers/                  # Source-only unpublished module, built/tested separately
 ```
 
 ## Coding Conventions
@@ -81,4 +81,3 @@ public class EventConsumer {
   (`STREAMLINE_BOOTSTRAP_SERVERS`, `STREAMLINE_HTTP_URL`, `STREAMLINE_SCHEMA_REGISTRY_URL`).
 - JaCoCo for coverage (runs on `verify`)
 - SpotBugs for static analysis (runs on `verify`); exclusions live in `spotbugs-exclude.xml`
-

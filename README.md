@@ -13,6 +13,8 @@ Native Java client library for Streamline with Spring Boot integration.
 
 - **streamline-client**: Core Java client library
 - **streamline-spring-boot-starter**: Spring Boot auto-configuration
+- **testcontainers**: Source-only standalone module, built and tested in CI but
+  not currently published or supported as a Maven Central artifact
 
 ## Quick Start
 
@@ -186,9 +188,12 @@ distributed tracing across producer and consumer.
 ## Requirements
 
 - Java 17 or later
+- Maven 3.9.0 or later for source builds (system `mvn`; no wrapper is included)
 - Streamline server 0.3.0 or later
 
 ## Building from Source
+
+Install Maven 3.9.0 or later, then use the system `mvn` command:
 
 ```bash
 mvn clean install
@@ -444,7 +449,7 @@ try (var consumer = client.consumer(branch.getTopic(), "branch-group")) {
 
 ## Contributing
 
-Contributions are welcome! Please see the [organization contributing guide](https://github.com/streamlinelabs/.github/blob/main/CONTRIBUTING.md) for guidelines.
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
@@ -453,12 +458,9 @@ Apache 2.0
 
 ## Security
 
-To report a security vulnerability, please email **security@streamline.dev**.
+To report a security vulnerability, please email **security@streamlinelabs.dev**.
 Do **not** open a public issue.
 
-See the [Security Policy](https://github.com/streamlinelabs/streamline/blob/main/SECURITY.md) for details.
+See the [Security Policy](SECURITY.md) for details.
 
 <!-- add Javadoc for public client interfaces -->
-
-
-

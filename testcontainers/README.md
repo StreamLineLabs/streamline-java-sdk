@@ -1,9 +1,12 @@
 # Testcontainers Streamline (Java)
 
-[![Maven Central](https://img.shields.io/maven-central/v/io.streamline/testcontainers-streamline?style=flat-square)](https://search.maven.org/artifact/io.streamline/testcontainers-streamline)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square)](LICENSE)
 
 Testcontainers module for [Streamline](https://github.com/streamlinelabs/streamline) — **5x faster** than Kafka containers (~1s vs ~15s startup).
+
+> **Source-only status:** this standalone `0.2.0` module is built and tested from
+> this repository, but it is not part of the release reactor and is not
+> currently published or supported as a Maven Central artifact.
 
 ## Features
 
@@ -13,9 +16,16 @@ Testcontainers module for [Streamline](https://github.com/streamlinelabs/streaml
 - No ZooKeeper or KRaft required
 - Built-in health checks
 
-## Installation
+## Local Source Use
 
-### Maven
+Build and install the module into your local Maven repository:
+
+```bash
+mvn -f testcontainers/pom.xml verify
+mvn -f testcontainers/pom.xml install -DskipTests
+```
+
+After that local install, use its standalone coordinate in a Maven project:
 
 ```xml
 <dependency>
@@ -26,11 +36,13 @@ Testcontainers module for [Streamline](https://github.com/streamlinelabs/streaml
 </dependency>
 ```
 
-### Gradle
+Or in a Gradle project configured to use `mavenLocal()`:
 
 ```groovy
 testImplementation 'io.streamline:testcontainers-streamline:0.2.0'
 ```
+
+These dependency snippets do not imply public repository availability.
 
 ## Usage
 

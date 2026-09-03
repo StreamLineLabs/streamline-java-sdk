@@ -15,7 +15,10 @@ Thank you for your interest in contributing to the Streamline Java SDK! This gui
 ## Prerequisites
 
 - Java 17 or later
-- Maven 3.8+ (or use the included `./mvnw` wrapper)
+- Maven 3.9.0 or later, installed on the system (`mvn`)
+
+This repository does not include a Maven wrapper. All documented commands use the
+system Maven installation.
 
 ## Development Setup
 
@@ -38,7 +41,7 @@ This is a multi-module Maven project:
 - `streamline-client/` — Core Java client library
 - `streamline-spring-boot-starter/` — Spring Boot auto-configuration starter
 - `examples/` — Runnable examples, compiled by every build but never published
-- `testcontainers/` — Standalone Testcontainers module (own coordinates, built separately)
+- `testcontainers/` — Source-only, unpublished standalone module (built separately in CI)
 
 ## Running Tests
 

@@ -135,9 +135,11 @@ public class SchemaRegistryClient implements AutoCloseable {
      * @param schema  the schema definition
      * @param type    the schema type
      * @return the registered schema ID
-     * @deprecated use {@link #registerSchema(String, String, SchemaFormat)} instead
+     * @deprecated Since 0.3.0, use
+     *     {@link #registerSchema(String, String, SchemaFormat)} instead. This method
+     *     is retained for source compatibility and is not scheduled for removal.
      */
-    @Deprecated
+    @Deprecated(since = "0.3.0", forRemoval = false)
     public int register(String subject, String schema, SchemaType type) {
         return registerSchema(subject, schema, SchemaFormat.valueOf(type.name()));
     }
@@ -359,9 +361,11 @@ public class SchemaRegistryClient implements AutoCloseable {
      * @param schema  the schema to check
      * @param type    the schema type
      * @return {@code true} if the schema is compatible
-     * @deprecated use {@link #checkCompatibility(String, String, SchemaFormat)} instead
+     * @deprecated Since 0.3.0, use
+     *     {@link #checkCompatibility(String, String, SchemaFormat)} instead. This
+     *     method is retained for source compatibility and is not scheduled for removal.
      */
-    @Deprecated
+    @Deprecated(since = "0.3.0", forRemoval = false)
     public boolean checkCompatibility(String subject, String schema, SchemaType type) {
         return checkCompatibility(subject, schema, SchemaFormat.valueOf(type.name()));
     }
