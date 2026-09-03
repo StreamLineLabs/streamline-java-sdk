@@ -4,6 +4,7 @@ import dev.streamline.client.ConnectionPool;
 import dev.streamline.client.StreamlineConfig;
 import dev.streamline.client.StreamlineException;
 import dev.streamline.client.TopicNameValidator;
+import dev.streamline.client.http.UriEncoder;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.admin.Admin;
@@ -26,7 +27,6 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -363,7 +363,7 @@ public class AdminClient implements Closeable {
         try {
             String path = "/api/v1/branches";
             if (topic != null && !topic.isEmpty()) {
-                path += "?topic=" + java.net.URLEncoder.encode(topic, StandardCharsets.UTF_8);
+                path += "?topic=" + UriEncoder.encodeQueryParameter(topic);
             }
             HttpRequest req = HttpRequest.newBuilder(URI.create(httpUrl + path))
                     .timeout(httpRequestTimeout)
@@ -405,8 +405,11 @@ public class AdminClient implements Closeable {
     public void discardBranch(String branchId) {
         ensureOpen();
         Objects.requireNonNull(branchId, "branchId must not be null");
+        if (branchId.isEmpty()) {
+            throw new IllegalArgumentException("branchId must not be empty");
+        }
         try {
-            String path = "/api/v1/branches/" + java.net.URLEncoder.encode(branchId, StandardCharsets.UTF_8);
+            String path = "/api/v1/branches/" + UriEncoder.encodePathSegment(branchId);
             HttpRequest req = HttpRequest.newBuilder(URI.create(httpUrl + path))
                     .timeout(httpRequestTimeout)
                     .DELETE()

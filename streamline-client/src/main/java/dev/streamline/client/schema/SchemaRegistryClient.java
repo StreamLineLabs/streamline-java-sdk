@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.streamline.client.StreamlineException;
+import dev.streamline.client.http.UriEncoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -104,7 +105,7 @@ public class SchemaRegistryClient implements AutoCloseable {
      * @throws StreamlineException if registration fails
      */
     public int registerSchema(String subject, String schema, SchemaFormat format) {
-        Objects.requireNonNull(subject, "subject must not be null");
+        String subjectSegment = encodeSubject(subject);
         Objects.requireNonNull(schema, "schema must not be null");
         Objects.requireNonNull(format, "format must not be null");
 
@@ -115,7 +116,7 @@ public class SchemaRegistryClient implements AutoCloseable {
         log.debug("Registering schema for subject '{}' with format {}", subject, format);
 
         String responseBody = execute(HttpRequest.newBuilder()
-            .uri(uri("/subjects/" + subject + "/versions"))
+            .uri(uri("/subjects/" + subjectSegment + "/versions"))
             .header("Content-Type", CONTENT_TYPE)
             .POST(HttpRequest.BodyPublishers.ofString(toJson(body)))
             .timeout(requestTimeout)
@@ -155,7 +156,10 @@ public class SchemaRegistryClient implements AutoCloseable {
      * @throws StreamlineException if the subject/version is not found
      */
     public Schema getSchema(String subject, int version) {
-        Objects.requireNonNull(subject, "subject must not be null");
+        String subjectSegment = encodeSubject(subject);
+        if (version <= 0) {
+            throw new IllegalArgumentException("version must be greater than zero");
+        }
 
         String cacheKey = subject + ":" + version;
         Schema cached = schemaBySvCache.get(cacheKey);
@@ -164,7 +168,7 @@ public class SchemaRegistryClient implements AutoCloseable {
         }
 
         String responseBody = execute(HttpRequest.newBuilder()
-            .uri(uri("/subjects/" + subject + "/versions/" + version))
+            .uri(uri("/subjects/" + subjectSegment + "/versions/" + version))
             .header("Accept", CONTENT_TYPE)
             .GET()
             .timeout(requestTimeout)
@@ -186,6 +190,9 @@ public class SchemaRegistryClient implements AutoCloseable {
      * @throws StreamlineException if the schema ID is not found
      */
     public String getSchema(int id) {
+        if (id <= 0) {
+            throw new IllegalArgumentException("id must be greater than zero");
+        }
         Schema cached = schemaByIdCache.get(id);
         if (cached != null) {
             return cached.schema();
@@ -217,10 +224,10 @@ public class SchemaRegistryClient implements AutoCloseable {
      * @throws StreamlineException if the subject is not found
      */
     public Schema getLatestSchema(String subject) {
-        Objects.requireNonNull(subject, "subject must not be null");
+        String subjectSegment = encodeSubject(subject);
 
         String responseBody = execute(HttpRequest.newBuilder()
-            .uri(uri("/subjects/" + subject + "/versions/latest"))
+            .uri(uri("/subjects/" + subjectSegment + "/versions/latest"))
             .header("Accept", CONTENT_TYPE)
             .GET()
             .timeout(requestTimeout)
@@ -240,10 +247,10 @@ public class SchemaRegistryClient implements AutoCloseable {
      * @throws StreamlineException if the subject is not found
      */
     public List<Integer> getVersions(String subject) {
-        Objects.requireNonNull(subject, "subject must not be null");
+        String subjectSegment = encodeSubject(subject);
 
         String responseBody = execute(HttpRequest.newBuilder()
-            .uri(uri("/subjects/" + subject + "/versions"))
+            .uri(uri("/subjects/" + subjectSegment + "/versions"))
             .header("Accept", CONTENT_TYPE)
             .GET()
             .timeout(requestTimeout)
@@ -288,12 +295,12 @@ public class SchemaRegistryClient implements AutoCloseable {
      * @throws StreamlineException if deletion fails
      */
     public void deleteSubject(String subject) {
-        Objects.requireNonNull(subject, "subject must not be null");
+        String subjectSegment = encodeSubject(subject);
 
         log.debug("Deleting subject '{}'", subject);
 
         execute(HttpRequest.newBuilder()
-            .uri(uri("/subjects/" + subject))
+            .uri(uri("/subjects/" + subjectSegment))
             .DELETE()
             .timeout(requestTimeout)
             .build());
@@ -326,7 +333,7 @@ public class SchemaRegistryClient implements AutoCloseable {
      * @throws StreamlineException if the compatibility check fails
      */
     public boolean checkCompatibility(String subject, String schema, SchemaFormat format) {
-        Objects.requireNonNull(subject, "subject must not be null");
+        String subjectSegment = encodeSubject(subject);
         Objects.requireNonNull(schema, "schema must not be null");
         Objects.requireNonNull(format, "format must not be null");
 
@@ -335,7 +342,7 @@ public class SchemaRegistryClient implements AutoCloseable {
         body.put("schemaType", format.name());
 
         String responseBody = execute(HttpRequest.newBuilder()
-            .uri(uri("/compatibility/subjects/" + subject + "/versions/latest"))
+            .uri(uri("/compatibility/subjects/" + subjectSegment + "/versions/latest"))
             .header("Content-Type", CONTENT_TYPE)
             .POST(HttpRequest.BodyPublishers.ofString(toJson(body)))
             .timeout(requestTimeout)
@@ -369,10 +376,10 @@ public class SchemaRegistryClient implements AutoCloseable {
      * @throws StreamlineException if the subject is not found or the request fails
      */
     public CompatibilityLevel getCompatibilityLevel(String subject) {
-        Objects.requireNonNull(subject, "subject must not be null");
+        String subjectSegment = encodeSubject(subject);
 
         String responseBody = execute(HttpRequest.newBuilder()
-            .uri(uri("/config/" + subject))
+            .uri(uri("/config/" + subjectSegment))
             .header("Accept", CONTENT_TYPE)
             .GET()
             .timeout(requestTimeout)
@@ -391,7 +398,7 @@ public class SchemaRegistryClient implements AutoCloseable {
      * @throws StreamlineException if the request fails
      */
     public void setCompatibilityLevel(String subject, CompatibilityLevel level) {
-        Objects.requireNonNull(subject, "subject must not be null");
+        String subjectSegment = encodeSubject(subject);
         Objects.requireNonNull(level, "level must not be null");
 
         ObjectNode body = objectMapper.createObjectNode();
@@ -400,7 +407,7 @@ public class SchemaRegistryClient implements AutoCloseable {
         log.debug("Setting compatibility for subject '{}' to {}", subject, level);
 
         execute(HttpRequest.newBuilder()
-            .uri(uri("/config/" + subject))
+            .uri(uri("/config/" + subjectSegment))
             .header("Content-Type", CONTENT_TYPE)
             .PUT(HttpRequest.BodyPublishers.ofString(toJson(body)))
             .timeout(requestTimeout)
@@ -422,6 +429,14 @@ public class SchemaRegistryClient implements AutoCloseable {
 
     private URI uri(String path) {
         return URI.create(baseUrl + path);
+    }
+
+    private static String encodeSubject(String subject) {
+        Objects.requireNonNull(subject, "subject must not be null");
+        if (subject.isEmpty()) {
+            throw new IllegalArgumentException("subject must not be empty");
+        }
+        return UriEncoder.encodePathSegment(subject);
     }
 
     /**

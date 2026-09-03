@@ -1,7 +1,10 @@
 package dev.streamline.examples;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.streamline.client.Streamline;
 import dev.streamline.client.query.QueryClient;
+
+import java.util.Map;
 
 /**
  * Demonstrates using Streamline's embedded SQL analytics engine over the HTTP API.
@@ -18,6 +21,8 @@ import dev.streamline.client.query.QueryClient;
  */
 public class QueryUsage {
 
+    private static final ObjectMapper JSON = new ObjectMapper();
+
     public static void main(String[] args) throws Exception {
         try (Streamline client = Streamline.builder()
                 .bootstrapServers(ExampleEnv.bootstrapServers())
@@ -26,8 +31,13 @@ public class QueryUsage {
 
             System.out.println("Producing sample events...");
             for (int i = 0; i < 10; i++) {
-                client.produce("events", "key-" + i,
-                        String.format("{\"user\":\"user-%d\",\"action\":\"click\",\"value\":%d}", i, i * 10));
+                // Use Jackson rather than hand-built JSON strings: the same
+                // safe-construction rule the SDK's own HTTP clients follow.
+                String event = JSON.writeValueAsString(Map.of(
+                        "user", "user-" + i,
+                        "action", "click",
+                        "value", i * 10));
+                client.produce("events", "key-" + i, event);
             }
             System.out.println("Produced 10 events");
 

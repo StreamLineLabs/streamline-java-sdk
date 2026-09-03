@@ -2,9 +2,8 @@ package dev.streamline.client.moonshot;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.streamline.client.http.UriEncoder;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -63,7 +62,7 @@ public final class BranchAdminClient extends MoonshotHttpClient {
 
     public BranchView get(String branchId) {
         requireNonEmpty(branchId, "branchId");
-        String path = "/api/v1/branches/" + URLEncoder.encode(branchId, StandardCharsets.UTF_8);
+        String path = "/api/v1/branches/" + UriEncoder.encodePathSegment(branchId);
         Response r = request("GET", path, null);
         if (r.status < 200 || r.status >= 300) {
             throw new HttpException("GET", path, r.status, r.body);
@@ -73,7 +72,7 @@ public final class BranchAdminClient extends MoonshotHttpClient {
 
     public void delete(String branchId) {
         requireNonEmpty(branchId, "branchId");
-        String path = "/api/v1/branches/" + URLEncoder.encode(branchId, StandardCharsets.UTF_8);
+        String path = "/api/v1/branches/" + UriEncoder.encodePathSegment(branchId);
         Response r = request("DELETE", path, null);
         if (r.status < 200 || r.status >= 300) {
             throw new HttpException("DELETE", path, r.status, r.body);
@@ -83,7 +82,7 @@ public final class BranchAdminClient extends MoonshotHttpClient {
     public void append(String branchId, String role, String text, long timestampMs) {
         requireNonEmpty(branchId, "branchId");
         requireNonEmpty(role, "role");
-        String path = "/api/v1/branches/" + URLEncoder.encode(branchId, StandardCharsets.UTF_8) + "/messages";
+        String path = "/api/v1/branches/" + UriEncoder.encodePathSegment(branchId) + "/messages";
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("role", role);
         body.put("text", text == null ? "" : text);
@@ -96,7 +95,7 @@ public final class BranchAdminClient extends MoonshotHttpClient {
 
     public List<BranchMessage> messages(String branchId) {
         requireNonEmpty(branchId, "branchId");
-        String path = "/api/v1/branches/" + URLEncoder.encode(branchId, StandardCharsets.UTF_8) + "/messages";
+        String path = "/api/v1/branches/" + UriEncoder.encodePathSegment(branchId) + "/messages";
         Response r = request("GET", path, null);
         if (r.status < 200 || r.status >= 300) {
             throw new HttpException("GET", path, r.status, r.body);
