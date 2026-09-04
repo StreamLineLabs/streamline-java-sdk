@@ -94,8 +94,8 @@ Remaining manual release blockers:
    `CONTRIBUTING.md`.
 3. Run the live Docker/server integration workflow against the intended release
    image.
-4. Push the release tag only after those prerequisites are satisfied; no publish
-   was attempted during this remediation.
+4. Push `v0.4.0` only after those prerequisites are satisfied; no publish was
+   attempted during this remediation.
 
 ## Summary
 

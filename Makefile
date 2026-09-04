@@ -37,7 +37,7 @@ package: ## Build JAR package
 	$(MVN) package -q -DskipTests
 
 release: ## Verify a validated tag and hard-block until byte-identical Central publication exists
-	@test -n "$(RELEASE_TAG)" || { echo "RELEASE_TAG is required" >&2; exit 1; }
+	@test -n "$(RELEASE_TAG)" || { echo "RELEASE_TAG is required (for example, v0.4.0)" >&2; exit 1; }
 	scripts/validate-release-tag.sh "$(RELEASE_TAG)"
 	$(MVN) verify -P release
 	scripts/verify-release-artifacts.sh

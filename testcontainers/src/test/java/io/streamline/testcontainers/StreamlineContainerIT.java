@@ -52,7 +52,7 @@ class StreamlineContainerIT {
     /** Opt-in switch; without it the suite is skipped rather than pulling images. */
     static final String ENABLED_VAR = "STREAMLINE_INTEGRATION";
 
-    /** Overrides the image under test, e.g. {@code ghcr.io/streamlinelabs/streamline:0.3.0}. */
+    /** Overrides the image under test, e.g. {@code ghcr.io/streamlinelabs/streamline:0.4.0}. */
     static final String IMAGE_VAR = "STREAMLINE_IMAGE";
 
     @Container

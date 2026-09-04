@@ -129,7 +129,8 @@ Sonatype Central Portal. Before a release tag is pushed:
 - An ASCII-armored private GPG key and its passphrase must be stored as
   `MAVEN_GPG_PRIVATE_KEY` and `MAVEN_GPG_PASSPHRASE`.
 - No token, private key, or passphrase belongs in the repository.
-- The tag must exactly equal `v` plus the Maven project version.
+- The tag must exactly equal `v` plus the Maven project version; for this release,
+  the accepted tag is `v0.4.0`.
 - The `STREAMLINE_CONFORMANCE_IMAGE_DIGEST` repository variable must hold an
   explicit, immutable image reference (`ghcr.io/streamlinelabs/streamline@sha256:<64
   hex chars>`). There is no default; the release workflow hard-blocks rather than
@@ -162,8 +163,8 @@ tagged publication cannot skip ahead:
    Central publication blocked until a deploy mechanism that republishes the exact
    already-attested files is implemented and deliberately reviewed.
 
-For an equivalent local release, pass the exact tag explicitly to
-`make release`; the target validates the tag, runs the full
+For an equivalent local release, pass the exact tag explicitly, for example
+`make release RELEASE_TAG=v0.4.0`; the target validates the tag, runs the full
 build and artifact/SBOM checks, and then intentionally stops at the same
 fail-closed publication gate. It contains no deploy command.
 

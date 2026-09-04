@@ -5,7 +5,7 @@
 Testcontainers module for [Streamline](https://github.com/streamlinelabs/streamline) — **5x faster** than Kafka containers (~1s vs ~15s startup).
 
 > **Source-only status:** this standalone `0.2.0` module is built and tested from
-> this repository, but it is not part of the release reactor and is not
+> this repository, but it is not part of the `0.4.0` release reactor and is not
 > currently published or supported as a Maven Central artifact.
 
 ## Features
