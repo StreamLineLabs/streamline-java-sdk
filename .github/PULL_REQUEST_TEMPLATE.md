@@ -11,12 +11,12 @@
 
 ## Testing
 
-- [ ] Tests pass locally (`mvn test`)
-- [ ] Lint passes (`mvn checkstyle:check`)
+- [ ] Reactor verification passes locally (`mvn verify`)
+- [ ] The standalone Testcontainers module verifies (`mvn -f testcontainers/pom.xml verify`)
 - [ ] I have added tests for new functionality
 
 ## Checklist
 
 - [ ] My code follows the project conventions
 - [ ] I have updated documentation if needed
-- [ ] I have read [CONTRIBUTING.md](https://github.com/streamlinelabs/.github/blob/main/CONTRIBUTING.md)
+- [ ] I have read [CONTRIBUTING.md](../CONTRIBUTING.md)

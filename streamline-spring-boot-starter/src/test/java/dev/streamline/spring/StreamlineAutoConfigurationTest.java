@@ -1,5 +1,6 @@
 package dev.streamline.spring;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.streamline.client.Streamline;
 import dev.streamline.client.schema.SchemaRegistryClient;
 import org.junit.jupiter.api.Test;
@@ -22,6 +23,27 @@ class StreamlineAutoConfigurationTest {
             assertThat(context).hasSingleBean(Streamline.class);
             assertThat(context).hasSingleBean(StreamlineTemplate.class);
         });
+    }
+
+    @Test
+    void templateStartsWithoutAnApplicationObjectMapper() {
+        // Jackson's ObjectMapper bean only exists in web applications.
+        contextRunner.run(context -> {
+            assertThat(context).hasNotFailed();
+            assertThat(context).doesNotHaveBean(ObjectMapper.class);
+            assertThat(context).hasSingleBean(StreamlineTemplate.class);
+        });
+    }
+
+    @Test
+    void templateUsesTheApplicationObjectMapperWhenPresent() {
+        contextRunner
+            .withBean(ObjectMapper.class, ObjectMapper::new)
+            .run(context -> {
+                assertThat(context).hasNotFailed();
+                assertThat(context).hasSingleBean(ObjectMapper.class);
+                assertThat(context).hasSingleBean(StreamlineTemplate.class);
+            });
     }
 
     @Test

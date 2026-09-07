@@ -3,6 +3,7 @@ package dev.streamline.client.consumer;
 import dev.streamline.client.ConnectionPool;
 import dev.streamline.client.StreamlineConfig;
 import dev.streamline.client.producer.ProducerConfig;
+import dev.streamline.testsupport.UnitTestEndpoints;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,6 +17,12 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Unit tests for {@link Consumer}.
+ *
+ * <p>Only covers behaviour that is decided client-side. Anything that requires a
+ * partition assignment from a broker lives in {@code ConsumerIT}.
+ */
 class ConsumerTest {
 
     private ConnectionPool connectionPool;
@@ -24,7 +31,7 @@ class ConsumerTest {
     @BeforeEach
     void setUp() {
         StreamlineConfig config = new StreamlineConfig(
-            "localhost:9092",
+            UnitTestEndpoints.BOOTSTRAP_SERVERS,
             ProducerConfig.defaults(),
             ConsumerConfig.defaults(),
             4, 30000, 30000
@@ -82,14 +89,13 @@ class ConsumerTest {
     }
 
     @Test
-    void testSeekToOffset() {
-        assertDoesNotThrow(() -> consumer.seek(0, 100L));
+    void testSeekWithoutAssignmentThrows() {
+        assertThrows(IllegalStateException.class, () -> consumer.seek(0, 100L));
     }
 
     @Test
-    void testPosition() {
-        long position = consumer.position(0);
-        assertEquals(0, position);
+    void testPositionWithoutAssignmentThrows() {
+        assertThrows(IllegalStateException.class, () -> consumer.position(0));
     }
 
     @Test

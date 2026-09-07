@@ -7,12 +7,17 @@
     <parent>
         <groupId>dev.streamline</groupId>
         <artifactId>streamline-java-parent</artifactId>
-        <version>0.2.0</version>
+        <version>0.4.0</version>
     </parent>
 
     <artifactId>streamline-spring-boot-starter</artifactId>
     <name>Streamline Spring Boot Starter</name>
     <description>Spring Boot auto-configuration for Streamline client</description>
+
+    <properties>
+        <!-- Every module sits one level below the shared SpotBugs filter. -->
+        <spotbugs.excludeFilterFile>${project.basedir}/../spotbugs-exclude.xml</spotbugs.excludeFilterFile>
+    </properties>
 
     <dependencies>
         <!-- Streamline client -->
@@ -27,16 +32,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-autoconfigure</artifactId>
         </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-configuration-processor</artifactId>
-            <optional>true</optional>
-        </dependency>
 
         <!-- Actuator (health indicators) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-actuator</artifactId>
+            <artifactId>spring-boot-actuator</artifactId>
             <optional>true</optional>
         </dependency>
 
@@ -54,4 +54,22 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.springframework.boot</groupId>
+                            <artifactId>spring-boot-configuration-processor</artifactId>
+                            <version>${spring-boot.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>

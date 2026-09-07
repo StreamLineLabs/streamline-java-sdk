@@ -1,14 +1,18 @@
 # CLAUDE.md — Streamline Java SDK
 
 ## Overview
-Java 17 SDK for [Streamline](https://github.com/streamlinelabs/streamline) with Spring Boot starter. Maven multi-module project. Communicates via the Kafka wire protocol on port 9092.
+Java 17 SDK for [Streamline](https://github.com/streamlinelabs/streamline) with Spring Boot starter. Maven multi-module project requiring system Maven 3.9.0 or newer; no Maven wrapper is included. Communicates via the Kafka wire protocol on port 9092.
 
 ## Build & Test
 ```bash
 mvn compile                # Build
-mvn verify                 # Build + test + SpotBugs
-mvn test                   # Run tests only
+mvn verify                 # Build + unit tests + package + SpotBugs (no server needed)
+mvn test                   # Run unit tests only
 mvn javadoc:javadoc        # Generate Javadoc
+
+# Integration tests (*IT) — opt-in, needs a live server
+docker compose -f docker-compose.test.yml up -d
+STREAMLINE_INTEGRATION=1 mvn verify -Pintegration
 ```
 
 ## Architecture
@@ -32,6 +36,8 @@ streamline-java-sdk/
 │           ├── StreamlineProperties.java
 │           ├── StreamlineTemplate.java
 │           └── @StreamlineListener annotation
+├── examples/                        # Runnable examples, compiled but never published
+└── testcontainers/                  # Source-only unpublished module, built/tested separately
 ```
 
 ## Coding Conventions
@@ -64,8 +70,14 @@ public class EventConsumer {
 ```
 
 ## Testing
-- JUnit 5.10 + Mockito 5.7 for unit tests
-- Testcontainers 1.19 for integration tests
+- JUnit 5.10 + Mockito for unit tests; Testcontainers 1.19 for the container module
+- **Unit tests (`*Test`, Surefire) must be hermetic** — never depend on a service running
+  on the machine. Use `UnitTestEndpoints.BOOTSTRAP_SERVERS` (TEST-NET-1, unroutable) when
+  a real client object is required; in-process stubs on ephemeral loopback ports are fine.
+- **Integration tests (`*IT`, tagged `integration`, Failsafe)** need a live server. They
+  are skipped unless `-Pintegration` is active, and require `STREAMLINE_INTEGRATION=1`;
+  once enabled, an unreachable endpoint fails fast instead of skipping. Endpoints come
+  from `dev.streamline.testsupport.IntegrationEnvironment`
+  (`STREAMLINE_BOOTSTRAP_SERVERS`, `STREAMLINE_HTTP_URL`, `STREAMLINE_SCHEMA_REGISTRY_URL`).
 - JaCoCo for coverage (runs on `verify`)
-- SpotBugs for static analysis (runs on `verify`)
-
+- SpotBugs for static analysis (runs on `verify`); exclusions live in `spotbugs-exclude.xml`

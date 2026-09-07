@@ -4,8 +4,10 @@
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 0.2.x   | :white_check_mark: |
-| < 0.2   | :x:                |
+| 0.4.x   | :white_check_mark: |
+| <= 0.3.x | :x:               |
+
+Before 1.0, security fixes are provided on the current minor release line only.
 
 ## Reporting a Vulnerability
 
@@ -31,4 +33,3 @@ We follow responsible disclosure practices and will credit reporters (with permi
 ## Security Best Practices
 
 For production deployments, please review the [Streamline Security Documentation](https://github.com/streamlinelabs/streamline-docs).
-

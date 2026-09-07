@@ -1,7 +1,9 @@
 package dev.streamline.client.producer;
 
-import dev.streamline.client.*;
+import dev.streamline.client.ConnectionPool;
+import dev.streamline.client.StreamlineConfig;
 import dev.streamline.client.consumer.ConsumerConfig;
+import dev.streamline.testsupport.UnitTestEndpoints;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -9,11 +11,16 @@ import org.junit.jupiter.api.Test;
 import java.util.AbstractMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Unit tests for {@link Producer}.
+ *
+ * <p>Only covers behaviour that is decided client-side (validation, lifecycle,
+ * configuration). {@code send} blocks until the broker publishes topic metadata, so
+ * every successful-send assertion lives in {@code ProducerIT}.
+ */
 class ProducerTest {
 
     private ConnectionPool connectionPool;
@@ -23,7 +30,7 @@ class ProducerTest {
     @BeforeEach
     void setUp() {
         config = new StreamlineConfig(
-            "localhost:9092",
+            UnitTestEndpoints.BOOTSTRAP_SERVERS,
             ProducerConfig.defaults(),
             ConsumerConfig.defaults(),
             4, 30000, 30000
@@ -41,49 +48,6 @@ class ProducerTest {
     }
 
     @Test
-    void testSendWithKeyValue() throws ExecutionException, InterruptedException {
-        CompletableFuture<RecordMetadata> future = producer.send("test-topic", "key", "value");
-
-        assertNotNull(future);
-        RecordMetadata metadata = future.get();
-        assertNotNull(metadata);
-        assertEquals("test-topic", metadata.topic());
-    }
-
-    @Test
-    void testSendWithHeaders() throws ExecutionException, InterruptedException {
-        Headers headers = Headers.builder()
-            .add("trace-id", "123")
-            .build();
-
-        CompletableFuture<RecordMetadata> future = producer.send("topic", "key", "value", headers);
-
-        RecordMetadata metadata = future.get();
-        assertNotNull(metadata);
-        assertEquals("topic", metadata.topic());
-    }
-
-    @Test
-    void testSendToPartition() throws ExecutionException, InterruptedException {
-        CompletableFuture<RecordMetadata> future = producer.send("topic", 2, "key", "value");
-
-        RecordMetadata metadata = future.get();
-        assertNotNull(metadata);
-        assertEquals("topic", metadata.topic());
-        assertEquals(2, metadata.partition());
-    }
-
-    @Test
-    void testSendToPartitionWithHeaders() throws ExecutionException, InterruptedException {
-        Headers headers = Headers.builder().add("h1", "v1").build();
-        CompletableFuture<RecordMetadata> future = producer.send("topic", 5, "key", "value", headers);
-
-        RecordMetadata metadata = future.get();
-        assertNotNull(metadata);
-        assertEquals(5, metadata.partition());
-    }
-
-    @Test
     void testFlush() {
         assertDoesNotThrow(() -> producer.flush());
     }
@@ -97,16 +61,6 @@ class ProducerTest {
     void testSendAfterClose() {
         producer.close();
         assertThrows(IllegalStateException.class, () -> producer.send("topic", "key", "value"));
-    }
-
-    @Test
-    void testSendReturnsMetadata() throws ExecutionException, InterruptedException {
-        RecordMetadata metadata = producer.send("my-topic", "key", "value").get();
-
-        assertEquals("my-topic", metadata.topic());
-        assertEquals(0, metadata.partition());
-        assertTrue(metadata.offset() > 0);
-        assertTrue(metadata.timestamp() > 0);
     }
 
     @Test
@@ -162,14 +116,6 @@ class ProducerTest {
         assertThrows(IllegalStateException.class, () -> producer.flush());
     }
 
-    @Test
-    void testSendWithNullKeyIsAllowed() throws ExecutionException, InterruptedException {
-        CompletableFuture<RecordMetadata> future = producer.send("topic", null, "value");
-        assertNotNull(future);
-        RecordMetadata metadata = future.get();
-        assertNotNull(metadata);
-    }
-
     // --- Transaction tests ---
 
     @Test
@@ -206,25 +152,6 @@ class ProducerTest {
     }
 
     // --- sendBatch tests ---
-
-    @Test
-    void testSendBatchReturnsCorrectNumberOfFutures() throws ExecutionException, InterruptedException {
-        List<Map.Entry<String, String>> messages = List.of(
-            new AbstractMap.SimpleEntry<>("k1", "v1"),
-            new AbstractMap.SimpleEntry<>("k2", "v2"),
-            new AbstractMap.SimpleEntry<>("k3", "v3")
-        );
-
-        List<CompletableFuture<RecordMetadata>> futures = producer.sendBatch("test-topic", messages);
-
-        assertNotNull(futures);
-        assertEquals(3, futures.size());
-        for (CompletableFuture<RecordMetadata> future : futures) {
-            RecordMetadata metadata = future.get();
-            assertNotNull(metadata);
-            assertEquals("test-topic", metadata.topic());
-        }
-    }
 
     @Test
     void testSendBatchWithNullTopicShouldThrow() {

@@ -13,6 +13,8 @@ Native Java client library for Streamline with Spring Boot integration.
 
 - **streamline-client**: Core Java client library
 - **streamline-spring-boot-starter**: Spring Boot auto-configuration
+- **testcontainers**: Source-only standalone module, built and tested in CI but
+  not currently published or supported as a Maven Central artifact
 
 ## Quick Start
 
@@ -22,14 +24,14 @@ Native Java client library for Streamline with Spring Boot integration.
 <dependency>
     <groupId>dev.streamline</groupId>
     <artifactId>streamline-client</artifactId>
-    <version>0.3.0</version>
+    <version>0.4.0</version>
 </dependency>
 ```
 
 ### Gradle
 
 ```groovy
-implementation 'dev.streamline:streamline-client:0.3.0'
+implementation 'dev.streamline:streamline-client:0.4.0'
 ```
 
 ## Usage
@@ -68,7 +70,7 @@ Add the starter dependency:
 <dependency>
     <groupId>dev.streamline</groupId>
     <artifactId>streamline-spring-boot-starter</artifactId>
-    <version>0.3.0</version>
+    <version>0.4.0</version>
 </dependency>
 ```
 
@@ -134,7 +136,7 @@ Add the OpenTelemetry dependency alongside the SDK:
 <dependency>
     <groupId>dev.streamline</groupId>
     <artifactId>streamline-client</artifactId>
-    <version>0.3.0</version>
+    <version>0.4.0</version>
 </dependency>
 <!-- Optional: enable OpenTelemetry tracing -->
 <dependency>
@@ -186,14 +188,51 @@ distributed tracing across producer and consumer.
 ## Requirements
 
 - Java 17 or later
-- Streamline server 0.3.0 or later
+- Maven 3.9.0 or later for source builds (system `mvn`; no wrapper is included)
+- Streamline server 0.4.0 or later
 
 ## Building from Source
 
+Install Maven 3.9.0 or later, then use the system `mvn` command:
+
 ```bash
-cd sdks/java
-./mvnw clean install
+mvn clean install
 ```
+
+## Testing
+
+Unit tests are hermetic — they never depend on a running broker or HTTP endpoint — so
+the default build is self-contained and bounded:
+
+```bash
+mvn verify            # compile + unit tests + package + SpotBugs, no server needed
+make unit-test        # unit tests only
+```
+
+Integration tests (`*IT`, including the conformance suite) need a live Streamline
+server and are **opt-in**. They only run when the `integration` profile is active,
+and they require `STREAMLINE_INTEGRATION=1` — without it they are skipped, and with
+it an unreachable server fails the build instead of silently passing:
+
+```bash
+docker compose -f docker-compose.test.yml up -d
+STREAMLINE_INTEGRATION=1 mvn verify -Pintegration
+docker compose -f docker-compose.test.yml down -v
+
+# or, all of the above:
+make integration-test
+```
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `STREAMLINE_INTEGRATION` | *(unset)* | Set to `1` to enable integration tests |
+| `STREAMLINE_BOOTSTRAP_SERVERS` | `localhost:9092` | Kafka-protocol endpoint |
+| `STREAMLINE_HTTP_URL` | `http://localhost:9094` | HTTP API endpoint |
+| `STREAMLINE_SCHEMA_REGISTRY_URL` | `$STREAMLINE_HTTP_URL` | Schema Registry endpoint |
+| `STREAMLINE_IMAGE` | `ghcr.io/streamlinelabs/streamline:latest` | Image used by Docker Compose and Testcontainers |
+
+Exporting `STREAMLINE_INTEGRATION=1` also activates the `integration` profile on its
+own, so `mvn verify` is enough once it is set.
 
 ## API Reference
 
@@ -248,21 +287,20 @@ cd sdks/java
 
 | Method | Description |
 |--------|-------------|
-| `query.execute(sql)` | Execute a SQL query against stream data |
-| `query.execute(sql, params)` | Execute a parameterized query |
+| `query.query(sql)` | Execute a SQL query against stream data |
+| `query.query(sql, timeoutMs, maxRows)` | Execute a query with an explicit bound |
+| `query.explain(sql)` | Return the query plan |
 
 ## Error Handling
 
 ```java
-import com.streamlinelabs.StreamlineException;
-import com.streamlinelabs.TopicNotFoundException;
+import dev.streamline.client.StreamlineException;
 
 try {
     client.produce("my-topic", "key", "value");
-} catch (TopicNotFoundException e) {
-    System.out.println("Topic not found: " + e.getMessage());
-    System.out.println("Hint: " + e.getHint());
 } catch (StreamlineException e) {
+    System.out.println("Error code: " + e.getErrorCode());
+    System.out.println("Hint: " + e.getHint());
     if (e.isRetryable()) {
         System.out.println("Retryable error: " + e.getMessage());
     } else {
@@ -336,21 +374,25 @@ When the circuit is open, `execute()` throws a retryable `StreamlineException`. 
 
 ## Examples
 
-The [`examples/`](examples/src/main/java/com/streamline/examples/) directory contains runnable examples:
+The [`examples/`](examples/src/main/java/dev/streamline/examples/) directory contains runnable examples:
 
 | Example | Description |
 |---------|-------------|
-| [BasicUsage](examples/src/main/java/com/streamline/examples/BasicUsage.java) | Produce, consume, and admin operations |
-| [QueryUsage](examples/src/main/java/com/streamline/examples/QueryUsage.java) | SQL analytics with the embedded query engine |
-| [SchemaRegistryUsage](examples/src/main/java/com/streamline/examples/SchemaRegistryUsage.java) | Schema registration and validation |
-| [CircuitBreakerUsage](examples/src/main/java/com/streamline/examples/CircuitBreakerUsage.java) | Resilient production with circuit breaker |
-| [SecurityUsage](examples/src/main/java/com/streamline/examples/SecurityUsage.java) | TLS and SASL authentication |
+| [BasicUsage](examples/src/main/java/dev/streamline/examples/BasicUsage.java) | Produce, consume, and admin operations |
+| [AdminClientUsage](examples/src/main/java/dev/streamline/examples/AdminClientUsage.java) | Topic, consumer group and cluster administration |
+| [AgentMemoryUsage](examples/src/main/java/dev/streamline/examples/AgentMemoryUsage.java) | Agent memory remember/recall (experimental) |
+| [QueryUsage](examples/src/main/java/dev/streamline/examples/QueryUsage.java) | SQL analytics with the embedded query engine |
+| [SchemaRegistryUsage](examples/src/main/java/dev/streamline/examples/SchemaRegistryUsage.java) | Schema registration and validation |
+| [CircuitBreakerUsage](examples/src/main/java/dev/streamline/examples/CircuitBreakerUsage.java) | Resilient production with circuit breaker |
+| [SecurityUsage](examples/src/main/java/dev/streamline/examples/SecurityUsage.java) | TLS and SASL authentication |
 
 Run any example with Maven:
 
 ```bash
-mvn compile exec:java -Dexec.mainClass=com.streamline.examples.BasicUsage
+mvn compile exec:java -pl examples -Dexec.mainClass=dev.streamline.examples.BasicUsage
 ```
+
+Examples are compiled as part of every build, so they cannot drift from the API.
 
 ## Moonshot Features
 
@@ -407,7 +449,7 @@ try (var consumer = client.consumer(branch.getTopic(), "branch-group")) {
 
 ## Contributing
 
-Contributions are welcome! Please see the [organization contributing guide](https://github.com/streamlinelabs/.github/blob/main/CONTRIBUTING.md) for guidelines.
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
@@ -416,12 +458,9 @@ Apache 2.0
 
 ## Security
 
-To report a security vulnerability, please email **security@streamline.dev**.
+To report a security vulnerability, please email **security@streamlinelabs.dev**.
 Do **not** open a public issue.
 
-See the [Security Policy](https://github.com/streamlinelabs/streamline/blob/main/SECURITY.md) for details.
+See the [Security Policy](SECURITY.md) for details.
 
 <!-- add Javadoc for public client interfaces -->
-
-
-

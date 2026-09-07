@@ -31,7 +31,7 @@ class MoonshotClientsTest {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/", (HttpExchange ex) -> {
             lastMethod.set(ex.getRequestMethod());
-            lastPath.set(ex.getRequestURI().getPath());
+            lastPath.set(ex.getRequestURI().getRawPath());
             byte[] reqBytes = ex.getRequestBody().readAllBytes();
             if (reqBytes.length > 0) {
                 try {
@@ -177,6 +177,41 @@ class MoonshotClientsTest {
         assertEquals(1, r.hits().size());
         assertEquals(0.9, r.hits().get(0).score(), 1e-9);
         assertTrue(lastPath.get().endsWith("/topics/logs/search"));
+    }
+
+    @Test
+    void search_percentEncodesEntireTopicAsOnePathSegment() throws Exception {
+        startWith(200, "{\"hits\":[]}");
+        SemanticSearchClient c = new SemanticSearchClient(opts());
+
+        c.search("../a/b c%?#雪😀", "query", SemanticSearchClient.SearchOptions.defaults());
+
+        assertEquals(
+                "/api/v1/topics/..%2Fa%2Fb%20c%25%3F%23%E9%9B%AA%F0%9F%98%80/search",
+                lastPath.get());
+        assertFalse(lastPath.get().contains("+"));
+    }
+
+    @Test
+    void branch_percentEncodesEntireIdAsOnePathSegment() throws Exception {
+        startWith(200, "{\"id\":\"branch\"}");
+        BranchAdminClient c = new BranchAdminClient(opts());
+
+        c.get("../a/b c%?#雪😀");
+
+        assertEquals(
+                "/api/v1/branches/..%2Fa%2Fb%20c%25%3F%23%E9%9B%AA%F0%9F%98%80",
+                lastPath.get());
+    }
+
+    @Test
+    void branch_encodesExactParentTraversalSegment() throws Exception {
+        startWith(200, "{\"id\":\"branch\"}");
+        BranchAdminClient c = new BranchAdminClient(opts());
+
+        c.get("..");
+
+        assertEquals("/api/v1/branches/%2E%2E", lastPath.get());
     }
 
     @Test

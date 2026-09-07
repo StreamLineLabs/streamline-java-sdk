@@ -4,6 +4,7 @@ import dev.streamline.client.ConnectionPool;
 import dev.streamline.client.StreamlineConfig;
 import dev.streamline.client.StreamlineException;
 import dev.streamline.client.TopicNameValidator;
+import dev.streamline.client.http.UriEncoder;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.admin.Admin;
@@ -26,7 +27,6 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -68,6 +68,7 @@ public class AdminClient implements Closeable {
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private final String httpUrl;
     private final HttpClient httpClient;
+    private final Duration httpRequestTimeout;
 
     public AdminClient(ConnectionPool connectionPool, StreamlineConfig config) {
         this.connectionPool = Objects.requireNonNull(connectionPool, "connectionPool must not be null");
@@ -80,8 +81,9 @@ public class AdminClient implements Closeable {
 
         this.kafkaAdmin = Admin.create(props);
         this.httpUrl = config.getHttpEndpoint();
+        this.httpRequestTimeout = Duration.ofMillis(config.getRequestTimeoutMs());
         this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(10))
+                .connectTimeout(Duration.ofMillis(config.getConnectTimeoutMs()))
                 .build();
         log.debug("AdminClient created for bootstrap servers: {}", config.getBootstrapServers());
     }
@@ -326,6 +328,7 @@ public class AdminClient implements Closeable {
             byte[] json = MAPPER.writeValueAsBytes(body);
             HttpRequest req = HttpRequest.newBuilder(URI.create(httpUrl + "/api/v1/branches"))
                     .header("Content-Type", "application/json")
+                    .timeout(httpRequestTimeout)
                     .POST(HttpRequest.BodyPublishers.ofByteArray(json))
                     .build();
             HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
@@ -360,9 +363,10 @@ public class AdminClient implements Closeable {
         try {
             String path = "/api/v1/branches";
             if (topic != null && !topic.isEmpty()) {
-                path += "?topic=" + java.net.URLEncoder.encode(topic, StandardCharsets.UTF_8);
+                path += "?topic=" + UriEncoder.encodeQueryParameter(topic);
             }
             HttpRequest req = HttpRequest.newBuilder(URI.create(httpUrl + path))
+                    .timeout(httpRequestTimeout)
                     .GET()
                     .build();
             HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
@@ -401,9 +405,13 @@ public class AdminClient implements Closeable {
     public void discardBranch(String branchId) {
         ensureOpen();
         Objects.requireNonNull(branchId, "branchId must not be null");
+        if (branchId.isEmpty()) {
+            throw new IllegalArgumentException("branchId must not be empty");
+        }
         try {
-            String path = "/api/v1/branches/" + java.net.URLEncoder.encode(branchId, StandardCharsets.UTF_8);
+            String path = "/api/v1/branches/" + UriEncoder.encodePathSegment(branchId);
             HttpRequest req = HttpRequest.newBuilder(URI.create(httpUrl + path))
+                    .timeout(httpRequestTimeout)
                     .DELETE()
                     .build();
             HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());

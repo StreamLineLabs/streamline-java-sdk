@@ -1,9 +1,8 @@
 package dev.streamline.client.moonshot;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import dev.streamline.client.http.UriEncoder;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -42,7 +41,7 @@ public final class SemanticSearchClient extends MoonshotHttpClient {
         body.put("k", k);
         if (opts.filter() != null) body.put("filter", opts.filter());
 
-        String path = "/api/v1/topics/" + URLEncoder.encode(topic, StandardCharsets.UTF_8) + "/search";
+        String path = "/api/v1/topics/" + UriEncoder.encodePathSegment(topic) + "/search";
         Response r = request("POST", path, body);
         if (r.status >= 400) {
             throw new HttpException("POST", path, r.status, r.body);

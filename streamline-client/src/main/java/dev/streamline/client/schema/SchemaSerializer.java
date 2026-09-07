@@ -114,9 +114,11 @@ public class SchemaSerializer<T> {
     /**
      * Creates a serializer using the legacy {@link SchemaType} enum.
      *
-     * @deprecated use the {@link SchemaFormat} constructor instead
+     * @deprecated Since 0.3.0, use the {@link SchemaFormat} constructor instead.
+     *     This constructor is retained for source compatibility and is not scheduled
+     *     for removal.
      */
-    @Deprecated
+    @Deprecated(since = "0.3.0", forRemoval = false)
     public SchemaSerializer(SchemaRegistryClient registryClient, String subject,
                             String schema, SchemaType schemaType) {
         this(registryClient, subject, schema, SchemaFormat.valueOf(schemaType.name()), true, WireFormat.STREAMLINE);
@@ -125,9 +127,11 @@ public class SchemaSerializer<T> {
     /**
      * Creates a serializer using the legacy {@link SchemaType} enum.
      *
-     * @deprecated use the {@link SchemaFormat} constructor instead
+     * @deprecated Since 0.3.0, use the {@link SchemaFormat} constructor instead.
+     *     This constructor is retained for source compatibility and is not scheduled
+     *     for removal.
      */
-    @Deprecated
+    @Deprecated(since = "0.3.0", forRemoval = false)
     public SchemaSerializer(SchemaRegistryClient registryClient, String subject,
                             String schema, SchemaType schemaType, boolean autoRegister) {
         this(registryClient, subject, schema, SchemaFormat.valueOf(schemaType.name()), autoRegister, WireFormat.STREAMLINE);

@@ -116,6 +116,9 @@ public class CircuitBreaker {
                     transition(State.CLOSED);
                 }
                 break;
+            default:
+                // OPEN: a success cannot arrive while the circuit rejects everything.
+                break;
         }
     }
 
@@ -130,6 +133,9 @@ public class CircuitBreaker {
                 break;
             case HALF_OPEN:
                 transition(State.OPEN);
+                break;
+            default:
+                // OPEN: already open, nothing to escalate.
                 break;
         }
     }

@@ -1,6 +1,10 @@
 package dev.streamline.client.consumer;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.streamline.client.*;
+import dev.streamline.client.http.UriEncoder;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.clients.consumer.OffsetAndTimestamp;
@@ -44,6 +48,7 @@ import java.util.stream.Collectors;
 public class Consumer<K, V> implements Closeable {
 
     private static final Logger log = LoggerFactory.getLogger(Consumer.class);
+    private static final ObjectMapper JSON = new ObjectMapper();
 
     private final ConnectionPool connectionPool;
     private final StreamlineConfig config;
@@ -311,6 +316,11 @@ public class Consumer<K, V> implements Closeable {
      */
     public List<SearchResult> search(String topic, String query, int k) {
         ensureOpen();
+        TopicNameValidator.validate(topic);
+        Objects.requireNonNull(query, "query must not be null");
+        if (k <= 0) {
+            throw new IllegalArgumentException("k must be greater than zero");
+        }
         String baseUrl = config.getHttpEndpoint();
 
         try {
@@ -318,15 +328,14 @@ public class Consumer<K, V> implements Closeable {
                     .connectTimeout(Duration.ofSeconds(10))
                     .build();
 
-            String jsonBody = String.format(
-                    "{\"query\":\"%s\",\"k\":%d}",
-                    query.replace("\"", "\\\""), k);
+            byte[] jsonBody = JSON.writeValueAsBytes(Map.of("query", query, "k", k));
 
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(baseUrl + "/api/v1/topics/" + topic + "/search"))
+                    .uri(URI.create(baseUrl + "/api/v1/topics/"
+                            + UriEncoder.encodePathSegment(topic) + "/search"))
                     .header("Content-Type", "application/json")
                     .timeout(Duration.ofSeconds(30))
-                    .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8))
+                    .POST(HttpRequest.BodyPublishers.ofByteArray(jsonBody))
                     .build();
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
@@ -350,81 +359,26 @@ public class Consumer<K, V> implements Closeable {
         }
     }
 
-    @SuppressWarnings("unchecked")
-    private List<SearchResult> parseSearchResults(String json) {
-        // Minimal JSON parsing without external dependency — the SDK already uses
-        // Kafka client which doesn't bundle a JSON library on the compile classpath.
-        // In production the broker returns small payloads, so indexOf-based parsing
-        // is acceptable. For robustness a Jackson ObjectMapper could be injected.
+    private List<SearchResult> parseSearchResults(String json) throws JsonProcessingException {
+        JsonNode root = JSON.readTree(json);
         List<SearchResult> results = new ArrayList<>();
-        int hitsStart = json.indexOf("\"hits\"");
-        if (hitsStart < 0) return results;
-
-        int arrStart = json.indexOf('[', hitsStart);
-        if (arrStart < 0) return results;
-
-        int pos = arrStart + 1;
-        while (pos < json.length()) {
-            int objStart = json.indexOf('{', pos);
-            if (objStart < 0) break;
-            int objEnd = json.indexOf('}', objStart);
-            if (objEnd < 0) break;
-
-            String obj = json.substring(objStart, objEnd + 1);
-            int partition = extractInt(obj, "partition");
-            long offset = extractLong(obj, "offset");
-            double score = extractDouble(obj, "score");
-            String value = extractString(obj, "value");
-
-            results.add(new SearchResult(partition, offset, score, value));
-            pos = objEnd + 1;
+        if (root == null || !root.path("hits").isArray()) {
+            return results;
         }
 
+        for (JsonNode hit : root.path("hits")) {
+            if (!hit.isObject()) {
+                continue;
+            }
+            JsonNode valueNode = hit.get("value");
+            String value = valueNode == null || valueNode.isNull() ? null : valueNode.asText();
+            results.add(new SearchResult(
+                    hit.path("partition").asInt(),
+                    hit.path("offset").asLong(),
+                    hit.path("score").asDouble(),
+                    value));
+        }
         return results;
-    }
-
-    private static int extractInt(String json, String key) {
-        return (int) extractLong(json, key);
-    }
-
-    private static long extractLong(String json, String key) {
-        int idx = json.indexOf("\"" + key + "\"");
-        if (idx < 0) return 0;
-        int colon = json.indexOf(':', idx);
-        if (colon < 0) return 0;
-        int start = colon + 1;
-        while (start < json.length() && json.charAt(start) == ' ') start++;
-        int end = start;
-        while (end < json.length() && (Character.isDigit(json.charAt(end)) || json.charAt(end) == '-')) end++;
-        if (start == end) return 0;
-        return Long.parseLong(json.substring(start, end));
-    }
-
-    private static double extractDouble(String json, String key) {
-        int idx = json.indexOf("\"" + key + "\"");
-        if (idx < 0) return 0.0;
-        int colon = json.indexOf(':', idx);
-        if (colon < 0) return 0.0;
-        int start = colon + 1;
-        while (start < json.length() && json.charAt(start) == ' ') start++;
-        int end = start;
-        while (end < json.length() && (Character.isDigit(json.charAt(end)) || json.charAt(end) == '.' || json.charAt(end) == '-' || json.charAt(end) == 'E' || json.charAt(end) == 'e' || json.charAt(end) == '+')) end++;
-        if (start == end) return 0.0;
-        return Double.parseDouble(json.substring(start, end));
-    }
-
-    private static String extractString(String json, String key) {
-        int idx = json.indexOf("\"" + key + "\"");
-        if (idx < 0) return null;
-        int colon = json.indexOf(':', idx);
-        if (colon < 0) return null;
-        int start = colon + 1;
-        while (start < json.length() && json.charAt(start) == ' ') start++;
-        if (start >= json.length() || json.charAt(start) != '"') return null;
-        start++; // skip opening quote
-        int end = json.indexOf('"', start);
-        if (end < 0) return null;
-        return json.substring(start, end);
     }
 
     private void ensureOpen() {

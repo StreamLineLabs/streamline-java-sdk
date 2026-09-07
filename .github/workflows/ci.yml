@@ -6,6 +6,7 @@ on:
 
 jobs:
   build:
+    name: Unit build (no server required)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,8 +18,33 @@ jobs:
           java-version: '17'
           cache: maven
 
-      - name: Build and test
-        run: mvn verify
+      - name: Check release tag validation
+        run: scripts/test-validate-release-tag.sh
 
-      - name: Static analysis
-        run: mvn spotbugs:check -DfailOnError=true
+      - name: Check release secret preflight
+        run: scripts/test-release-preflight.sh
+
+      - name: Check live conformance image digest guard
+        run: scripts/test-require-image-digest.sh
+
+      - name: Check executed-test-count guard
+        run: scripts/test-verify-executed-tests.sh
+
+      - name: Check Maven Central publish gate
+        run: scripts/test-central-publish-gate.sh
+
+      # `verify` compiles, runs the unit tests, packages and runs SpotBugs.
+      # Integration tests (*IT) are skipped unless -Pintegration is requested,
+      # so this job never needs a broker.
+      - name: Build, unit test and static analysis
+        run: mvn --batch-mode verify
+
+      - name: Package release artifacts without signing or publishing
+        run: mvn --batch-mode -P release -DskipTests -Dgpg.skip=true package
+
+      - name: Verify release package and SBOM
+        run: scripts/verify-release-artifacts.sh
+
+      - name: Build testcontainers module
+        run: mvn --batch-mode verify
+        working-directory: testcontainers
